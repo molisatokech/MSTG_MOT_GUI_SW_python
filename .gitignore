@@ -1,0 +1,29 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / build outputs
+build/
+*.spec
+*.egg-info/
+
+dist/*.exe
+dist/*.zip
+
+# Logs & runtime artifacts
+*.log
+
+# IDE / editor
+.vscode/
+.idea/
+*.iml
+
+# OS generated
+.DS_Store
+Thumbs.db

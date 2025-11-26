@@ -1,0 +1,553 @@
+VERSION ""
+
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: NODE_15 NODE_14 NODE_13 NODE_12 NODE_11 NODE_10 NODE_09 NODE_08 NODE_07 NODE_06 NODE_05 NODE_04 NODE_03 NODE_02 NODE_01 NODE_00
+VAL_TABLE_ Vt_Env_CF_ECU_SSC_STAT 3 "Failure" 2 "Reserved" 1 "SSC ON" 0 "SSC OFF" ;
+VAL_TABLE_ Vt_Env_NM_CCU_PNI 128 "MDPS_OTA_ON" 0 "MDPS_OTA_OFF" ;
+VAL_TABLE_ VCU_AlvCnt1ValControl 1 "Enable" 0 "Disable" ;
+VAL_TABLE_ Vt_VehVariantSel 4 "JX1" 3 "NX4Hev" 2 "NX4" 1 "RG3" 0 "OFF" ;
+VAL_TABLE_ VtEnv_ESC_CylPrsrVal 4095 "Error" ;
+VAL_TABLE_ VtEnv_ENG_BrkSwSta 3 "Brake Switch Failure" 2 "not support" 1 "Brake Switch ON" 0 "Brake Switch OFF" ;
+VAL_TABLE_ VtEnv_AlvCntControl 1 "Enable" 0 "Disable" ;
+VAL_TABLE_ VtEnv_CRCControl 1 "Enable" 0 "Disable" ;
+VAL_TABLE_ VtEnv_MSGControl 1 "Enable" 0 "Disable" ;
+
+
+BO_ 28 ID00_28_RSP_ERRLOG: 8 Vector__XXX
+ SG_ Rsv1_2 : 47|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Rsv16 : 48|16@1+ (1,0) [0|32767] "" Vector__XXX
+ SG_ GDRVE_DSO_LV0 : 46|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_GSU_LV0 : 45|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_BSU_LV0 : 44|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_LDF_LV0 : 43|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VLU_LV0 : 42|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VR_LV0 : 41|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_ETO_LV0 : 40|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VLO_LV0 : 39|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VS_LV0 : 38|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_TW_LV0 : 37|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_OT_LV0 : 36|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_EE_LV0 : 35|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_SE_LV0 : 34|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_POR_LV0 : 33|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_FF_LV0 : 32|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ Rsv3 : 29|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ Rsv1 : 25|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ MPSE_LV0 : 28|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ IGNTORQOFF_LV0 : 27|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ CANALIVEE_LV0 : 26|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ PCP_EPOS_LV0 : 24|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ VCP_ERPM_LV0 : 23|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ CCP_IW_LV0 : 22|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ CCP_IV_LV0 : 21|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ CCP_IU_LV0 : 20|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ CEP_LV0 : 19|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ VEP_INT5V_LV0 : 18|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ VEP_MPS5V_2_LV0 : 17|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ VEP_MPS5V_1_LV0 : 16|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ VEP_EXT5V_2_LV0 : 15|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ VEP_EXT5V_1_LV0 : 14|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ UTP_LV0 : 13|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OTP_LV2 : 12|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OTP_LV1 : 11|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OTP_LV0 : 10|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ UVP_LV2 : 9|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ UVP_LV1 : 8|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ UVP_LV0 : 7|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OVP_LV2 : 6|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OVP_LV1 : 5|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OVP_LV0 : 4|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ SCP_LV0 : 3|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OCP_LV2 : 2|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OCP_LV1 : 1|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ OCP_LV0 : 0|1@1+ (1,0) [0|1] "State" Vector__XXX
+
+BO_ 26 ID00_26_RSP_FUNC_STATE: 8 Vector__XXX
+ SG_ EN_QD250TRAC_PARA_SET : 63|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_QD250DIR_PARA_SET : 62|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_DD120_PARA_SET : 61|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_DD90B_PARA_SET : 60|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_DD90_PARA_SET : 59|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ Rsv3 : 56|3@1+ (1,0) [0|7] ""  NODE_00
+ SG_ Rsv8_2 : 48|8@1+ (1,0) [0|255] ""  NODE_00
+ SG_ Rsv8 : 40|8@1+ (1,0) [0|255] ""  NODE_00
+ SG_ Rsv7 : 33|7@1+ (1,0) [0|127] ""  NODE_00
+ SG_ GET_FEEDFORWARD : 32|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_FUNC_STATE : 31|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_SW_REV : 30|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_SW_RESET : 29|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_ALIVE_CNT_MAX : 28|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_PROFILE : 27|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_POS_KP_KI : 26|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_VEL_KP_KI : 25|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_CUR_D_KP_KI : 24|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_CUR_Q_KP_KI : 23|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_CUR_GAIN_FREQ : 22|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_MAX_LIMIT : 21|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_ERR_LIMIT : 20|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_POS_SW_LIMIT : 19|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_IRATED : 18|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_LD_DQ : 17|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_KE_RA : 16|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_POLE : 15|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ GET_SRV_STATE : 14|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_POS_SW_LIMIT : 13|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ Rsv4 : 9|4@1+ (1,0) [0|15] ""  NODE_00
+ SG_ GET_ERR_STATE : 8|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_ERR_CLR : 7|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_AOS_ORG : 6|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_POS_ORG : 5|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_CUR_FREQGAIN_CAL : 4|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_ADC_CAL : 3|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_MPS_CAL : 2|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_QUICK_SETUP : 1|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+ SG_ EN_PARA_SAVE : 0|1@1+ (1,0) [0|1] "Func Flag"  NODE_00
+
+BO_ 48 ID00_48_RSP_FEEDFORWARD: 8 Vector__XXX
+ SG_ POS_FEEDFORWARD : 32|32@1- (1e-06,0) [-2147.483648|2147.483647] "RPM"  NODE_00
+ SG_ VEL_FEEDFORWARD : 0|32@1- (1e-06,0) [-2147.483648|2147.483647] "Nm"  NODE_00
+
+BO_ 45 ID00_45_RSP_SW_REV: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ SW_Revision_Sub : 16|16@1+ (1,0) [0|65535] "Value"  NODE_00
+ SG_ SW_Revision_Main : 0|16@1+ (1,0) [0|65535] "Value"  NODE_00
+
+BO_ 44 ID00_44_RSP_ALIVE_CNT_MAX: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ AliveErrCntMax : 0|32@1+ (1,0) [0|4294967295] "Count"  NODE_00
+
+BO_ 43 ID00_43_RSP_PROFILE: 8 Vector__XXX
+ SG_ RPMmax : 32|16@1+ (1,0) [0|65535] "RPM"  NODE_00
+ SG_ Dccel : 16|16@1+ (0.1,0) [0|6553.5] "Rad/s^2"  NODE_00
+ SG_ Accel : 0|16@1+ (0.1,0) [0|6553.5] "Rad/s^2"  NODE_00
+
+BO_ 42 ID00_42_RSP_POS_KP_KI: 8 Vector__XXX
+ SG_ POS_Ki : 32|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+ SG_ POS_Kp : 0|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+
+BO_ 41 ID00_41_RSP_VEL_KP_KI: 8 Vector__XXX
+ SG_ VEL_Ki : 32|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+ SG_ VEL_Kp : 0|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+
+BO_ 40 ID00_40_RSP_CUR_D_KP_KI: 8 Vector__XXX
+ SG_ CUR_D_Ki : 32|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+ SG_ CUR_D_Kp : 0|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+
+BO_ 39 ID00_39_RSP_CUR_Q_KP_KI: 8 Vector__XXX
+ SG_ CUR_Q_Ki : 32|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+ SG_ CUR_Q_Kp : 0|32@1+ (1e-06,0) [0|4294.967295] "Constant"  NODE_00
+
+BO_ 38 ID00_38_RSP_CUR_GAIN_FREQ: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Rsv16 : 16|16@1+ (1,0) [0|32767] ""  NODE_00
+ SG_ CURGainFreq : 0|16@1+ (1,0) [0|65535] "Hz"  NODE_00
+
+BO_ 37 ID00_37_RSP_MAX_LIMIT: 8 Vector__XXX
+ SG_ TorqMaxLimit_N : 48|16@1+ (0.1,0) [0|6553.5] "Nm" Vector__XXX
+ SG_ TorqMaxLimit_P : 32|16@1+ (0.1,0) [0|6553.5] "Nm" Vector__XXX
+ SG_ VelMaxLimit_N : 16|16@1+ (1,0) [0|65535] "RPM" Vector__XXX
+ SG_ VelMaxLimit_P : 0|16@1+ (1,0) [0|65535] "RPM" Vector__XXX
+
+BO_ 36 ID00_36_RSP_ERR_LIMIT: 8 Vector__XXX
+ SG_ Rsv16 : 48|16@1+ (1,0) [0|32767] ""  NODE_00
+ SG_ VelErrLimit : 32|16@1+ (1,0) [0|65535] "RPM"  NODE_00
+ SG_ PosErrLimit : 0|32@1+ (1,0) [0|4294967295] "Pulse"  NODE_00
+
+BO_ 35 ID00_35_RSP_POS_SW_LIMIT: 8 Vector__XXX
+ SG_ PosSwLimit_N : 32|32@1- (1,0) [-2147483648|2147483647] "Pulse"  NODE_00
+ SG_ PosSwLimit_P : 0|32@1- (1,0) [-2147483648|2147483647] "Pulse"  NODE_00
+
+BO_ 34 ID00_34_RSP_IRATED: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Irated : 0|32@1+ (0.001,0) [0|4294967.295] "A"  NODE_00
+
+BO_ 33 ID00_33_RSP_LD_LQ: 8 Vector__XXX
+ SG_ Lq : 32|32@1+ (1e-06,0) [0|4294.967295] "H"  NODE_00
+ SG_ Ld : 0|32@1+ (1e-06,0) [0|4294.967295] "H"  NODE_00
+
+BO_ 32 ID00_32_RSP_KE_RA: 8 Vector__XXX
+ SG_ Ra : 32|32@1+ (1e-06,0) [0|4294.967295] "Ohm"  NODE_00
+ SG_ Ke : 0|32@1+ (1e-06,0) [0|4294.967295] "Vpeak/(rad/s)"  NODE_00
+
+BO_ 31 ID00_31_RSP_POLE: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Rsv16 : 16|16@1+ (1,0) [0|32767] ""  NODE_00
+ SG_ Rsv8 : 8|8@1+ (1,0) [0|255] ""  NODE_00
+ SG_ Pole : 0|8@1+ (1,0) [0|255] "Count"  NODE_00
+
+BO_ 30 ID00_30_RSP_VEL_HR_REPORT: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Avel_HR : 0|32@1- (0.001,0) [-2147483.648|2147483.647] "RPM"  NODE_00
+
+BO_ 27 ID00_27_RSP_ERR_STATE: 8 Vector__XXX
+ SG_ Rsv16 : 48|16@1+ (1,0) [0|32767] "" Vector__XXX
+ SG_ Rsv1_2 : 47|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ GDRVE_DSO_LV0 : 46|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_GSU_LV0 : 45|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_BSU_LV0 : 44|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_LDF_LV0 : 43|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VLU_LV0 : 42|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VR_LV0 : 41|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_ETO_LV0 : 40|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VLO_LV0 : 39|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_VS_LV0 : 38|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_TW_LV0 : 37|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_OT_LV0 : 36|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_EE_LV0 : 35|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_SE_LV0 : 34|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_POR_LV0 : 33|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ GDRVE_FF_LV0 : 32|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ Rsv3 : 29|3@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ Rsv1 : 25|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ MPSE_LV0 : 28|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ IGNTORQOFF_LV0 : 27|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ CANALIVEE_LV0 : 26|1@1+ (1,0) [0|1] "State" Vector__XXX
+ SG_ PCP_EPOS_LV0 : 24|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ VCP_ERPM_LV0 : 23|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ CCP_IW_LV0 : 22|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ CCP_IV_LV0 : 21|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ CCP_IU_LV0 : 20|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ CEP_LV0 : 19|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ VEP_INT5V_LV0 : 18|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ VEP_MPS5V_2_LV0 : 17|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ VEP_MPS5V_1_LV0 : 16|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ VEP_EXT5V_2_LV0 : 15|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ VEP_EXT5V_1_LV0 : 14|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ UTP_LV0 : 13|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OTP_LV2 : 12|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OTP_LV1 : 11|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OTP_LV0 : 10|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ UVP_LV2 : 9|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ UVP_LV1 : 8|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ UVP_LV0 : 7|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OVP_LV2 : 6|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OVP_LV1 : 5|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OVP_LV0 : 4|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ SCP_LV0 : 3|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OCP_LV2 : 2|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OCP_LV1 : 1|1@1+ (1,0) [0|1] "State"  NODE_00
+ SG_ OCP_LV0 : 0|1@1+ (1,0) [0|1] "State"  NODE_00
+
+BO_ 25 ID00_25_RSP_TEMPERATURE_REPORT: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Rsv16 : 16|16@1+ (1,0) [0|32767] ""  NODE_00
+ SG_ Temperature : 0|16@1- (0.1,0) [-3276.8|3276.7] "Degree"  NODE_00
+
+BO_ 24 ID00_24_RSP_VBUS_BAT_IGN_REPORT: 8 Vector__XXX
+ SG_ Rsv16 : 48|16@1+ (1,0) [0|32767] ""  NODE_00
+ SG_ Vign : 32|16@1- (0.1,0) [-3276.8|3276.7] "V"  NODE_00
+ SG_ Vbat : 16|16@1- (0.1,0) [-3276.8|3276.7] "V"  NODE_00
+ SG_ Vbus : 0|16@1- (0.1,0) [-3276.8|3276.7] "V"  NODE_00
+
+BO_ 23 ID00_23_RSP_VDQ_REPORT: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Vq : 16|16@1- (0.01,0) [-327.68|327.67] "V"  NODE_00
+ SG_ Vd : 0|16@1- (0.01,0) [-327.68|327.67] "V"  NODE_00
+
+BO_ 22 ID00_22_RSP_IDQ_REPORT: 8 Vector__XXX
+ SG_ A_Iq : 48|16@1- (0.01,0) [-327.68|327.67] "A"  NODE_00
+ SG_ A_Id : 32|16@1- (0.01,0) [-327.68|327.67] "A"  NODE_00
+ SG_ T_Iq : 16|16@1- (0.01,0) [-327.68|327.67] "A"  NODE_00
+ SG_ T_Id : 0|16@1- (0.01,0) [-327.68|327.67] "A"  NODE_00
+
+BO_ 21 ID00_21_RSP_PVT_REPORT: 8 Vector__XXX
+ SG_ Atorq : 48|16@1- (0.1,0) [-3276.8|3276.7] "Nm"  NODE_00
+ SG_ Avel : 32|16@1- (1,0) [-32768|32767] "RPM"  NODE_00
+ SG_ Apos : 0|32@1- (1,0) [-2147483648|2147483647] "Pulse"  NODE_00
+
+BO_ 20 ID00_20_RSP_AOS_REPORT: 8 Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ AOSangle : 0|32@1- (0.01,0) [-21474836.48|21474836.47] "Degree"  NODE_00
+
+BO_ 19 ID00_19_RSP_SRV_STATE: 8 Vector__XXX
+ SG_ Rsv32 : 16|32@1+ (1,0) [0|4294967295] ""  NODE_00
+ SG_ Rsv8 : 8|8@1+ (1,0) [0|255] ""  NODE_00
+ SG_ WarnState : 7|1@1+ (1,0) [0|1] "Flag"  NODE_00
+ SG_ ErrState : 6|1@1+ (1,0) [0|1] "Flag"  NODE_00
+ SG_ SRV_Mode : 3|3@1+ (1,0) [0|7] "Code"  NODE_00
+ SG_ SRV_State : 0|3@1+ (1,0) [0|7] "Code"  NODE_00
+
+BO_ 4 ID00_04_CMD_FUNC_EN: 8 NODE_00
+ SG_ GET_SRV_STATE : 14|1@1+ (1,0) [0|1] "Func Flag" Vector__XXX
+
+BO_ 3 ID00_03_CMD_REPORT_EN: 8 NODE_00
+ SG_ Rsv8 : 8|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ Rsv1 : 7|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Rsv32 : 32|32@1+ (1,0) [0|4294967295] "" Vector__XXX
+ SG_ Rsv16 : 16|16@1+ (1,0) [0|32767] "" Vector__XXX
+ SG_ VEL_HR : 6|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ VBUS_BAT_IGN : 4|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ TEMP : 5|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ VDQ : 3|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ IDQ : 2|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ PVT : 1|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ AOS : 0|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+
+BO_ 1 ID00_01_CMD_CTRL_VEL: 8 NODE_00
+ SG_ EN : 63|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ ALIVE_MODE : 62|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ COG_MODE : 61|1@1+ (1,0) [0|1] "Flag" Vector__XXX
+ SG_ Rsv13 : 48|13@1+ (1,0) [0|8191] "" Vector__XXX
+ SG_ Rsv8 : 24|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ Rsv16 : 32|16@1+ (1,0) [0|32767] "" Vector__XXX
+ SG_ ALIVE_CNT : 16|8@1+ (1,0) [0|255] "Count" Vector__XXX
+ SG_ CMD_VEL : 0|16@1- (1,0) [-32768|32767] "RPM" Vector__XXX
+
+BO_ 62 ID00_62_RSP_PPK_STATUS: 8 Vector__XXX
+ SG_ CANALIVE_STATUS : 0|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ IGNTORQOFF_STATUS : 1|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ GDRVEFF_STATUS : 2|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ OCP_STATUS : 3|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ OVP_STATUS : 4|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ PPK_OK : 5|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ CANRX_TIMEOUT_STATUS : 6|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ Rsv1 : 7|1@1+ (1,0) [0|1] "bit" Vector__XXX
+ SG_ BUSOFF_CNT : 8|8@1+ (1,0) [0|255] "Count" Vector__XXX
+ SG_ FRAME_CNT : 16|16@1+ (1,0) [0|65535] "Count" Vector__XXX
+ SG_ GDRV_HVOV_CNT : 32|8@1+ (1,0) [0|255] "Count" Vector__XXX
+ SG_ GDRV_LVOV_CNT : 40|8@1+ (1,0) [0|255] "Count" Vector__XXX
+ SG_ GDRV_OT_CNT : 48|8@1+ (1,0) [0|255] "Count" Vector__XXX
+ SG_ GDRV_REG_ERR_CNT : 56|8@1+ (1,0) [0|255] "Count" Vector__XXX
+
+
+
+
+
+BA_DEF_ BO_  "CANFD_BRS" ENUM  "0","1";
+BA_DEF_  "BusType" STRING ;
+BA_DEF_  "DBName" STRING ;
+BA_DEF_  "Baudrate" INT 50000 1000000;
+BA_DEF_  "BRS" INT 0 1;
+BA_DEF_  "GenEnvVarEndingDsp" STRING ;
+BA_DEF_  "GenEnvVarEndingSnd" STRING ;
+BA_DEF_  "GenEnvVarPrefix" STRING ;
+BA_DEF_  "GenNWMApBusSleep" STRING ;
+BA_DEF_  "GenNWMApCanNormal" STRING ;
+BA_DEF_  "GenNWMApCanOff" STRING ;
+BA_DEF_  "GenNWMApCanOn" STRING ;
+BA_DEF_  "GenNWMApCanSleep" STRING ;
+BA_DEF_  "GenNWMApCanWakeUp" STRING ;
+BA_DEF_  "GenNWMGotoMode_Awake" STRING ;
+BA_DEF_  "GenNWMGotoMode_BusSleep" STRING ;
+BA_DEF_  "GenNWMSleepTime" INT 1375 1650;
+BA_DEF_  "GenNWMTalkNM" STRING ;
+BA_DEF_  "Manufacturer" STRING ;
+BA_DEF_  "NmBaseAddress" HEX 0 2047;
+BA_DEF_  "NmMessageCount" INT 0 128;
+BA_DEF_  "NmType" STRING ;
+BA_DEF_  "SamplePointMax" INT 50 85;
+BA_DEF_  "SamplePointMin" INT 55 85;
+BA_DEF_  "SyncJumpWidthMax" INT 1 8;
+BA_DEF_  "SyncJumpWidthMin" INT 1 4;
+BA_DEF_  "VersionDay" INT 1 31;
+BA_DEF_  "VersionMonth" INT 1 12;
+BA_DEF_  "VersionNumber" INT 0 9999;
+BA_DEF_  "VersionNumberInternal" INT 0 9999;
+BA_DEF_  "VersionWeek" INT 1 53;
+BA_DEF_  "VersionYear" INT 0 9999;
+BA_DEF_ BU_  "NmStationAddress" HEX 0 127;
+BA_DEF_ BU_  "NmNode" ENUM  "No","Yes";
+BA_DEF_ BU_  "CANoeDrift" INT 0 0;
+BA_DEF_ BU_  "CANoeJitterMax" INT 0 0;
+BA_DEF_ BU_  "CANoeJitterMin" INT 0 0;
+BA_DEF_ BU_  "CANoeStartDelay" INT 0 0;
+BA_DEF_ BU_  "GenNodSleepTime" INT 1375 1650;
+BA_DEF_ BU_  "ILUsed" ENUM  "No","Yes";
+BA_DEF_ BU_  "NmCAN" INT 1 2;
+BA_DEF_ BU_  "NodeLayerModules" STRING ;
+BA_DEF_ BU_  "NWM_Knoten" ENUM  "No","Yes";
+BA_DEF_ BU_  "TpRxIdentifier" HEX 0 0;
+BA_DEF_ BU_  "TpTxIdentifier" HEX 0 0;
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 2000;
+BA_DEF_ BO_  "GenMsgStartDelayTime" INT 0 2000;
+BA_DEF_ BO_  "GenMsgSendType" ENUM  "Cyclic","NoMsgSendType";
+BA_DEF_ BO_  "GenMsgCycleTimeFast" INT 0 500;
+BA_DEF_ BO_  "GenMsgDelayTime" INT 0 20;
+BA_DEF_ BO_  "GenMsgFastOnStart" INT 0 0;
+BA_DEF_ BO_  "GenMsgILSupport" ENUM  "No","Yes";
+BA_DEF_ BO_  "GenMsgMinAcceptLength" INT 0 0;
+BA_DEF_ BO_  "GenMsgNrOfRepetition" INT 0 3;
+BA_DEF_ BO_  "NmMessage" ENUM  "No","Yes";
+BA_DEF_ BO_  "NWM-Botschaft" ENUM  "No","Yes";
+BA_DEF_ BO_  "TPTxIndex" INT 0 255;
+BA_DEF_ BO_  "VFrameFormat" ENUM  "StandardCAN","ExtendedCAN","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","StandardCAN_FD","ExtendedCAN_FD";
+BA_DEF_ SG_  "SignalLongName" STRING ;
+BA_DEF_ SG_  "UserSigValidity" ENUM  "B+","ACC","IG","IG1","IG2","IG3","IG1 or IG2","IG1 or IG3","Undef";
+BA_DEF_ SG_  "GenSigTimeoutTime" INT 0 7000;
+BA_DEF_ SG_  "UsrSigTimeoutValue" STRING ;
+BA_DEF_ SG_  "UsrSigPurpose" ENUM  "Undef","FN","DIAG","DEV","NM";
+BA_DEF_ SG_  "GenSigStartValue" INT 0 1215752192;
+BA_DEF_ SG_  "NetworkRequest" ENUM  "Yes","No";
+BA_DEF_ SG_  "NetworkRequestHoldingTime" INT 0 65535;
+BA_DEF_ SG_  "Description" STRING ;
+BA_DEF_ SG_  "Version" STRING ;
+BA_DEF_ SG_  "GenSigEnvVarType" ENUM  "Int","Float","Undef";
+BA_DEF_ SG_  "GenSigEVName" STRING ;
+BA_DEF_ SG_  "GenSigInactiveValue" INT 0 65536;
+BA_DEF_ SG_  "GenSigSendType" ENUM  "OnChangeWithRepetition","OnWriteWithRepetition","NoSigSendType","Cyclic";
+BA_DEF_ SG_  "GenSigTimeoutMsg" HEX 0 2047;
+BA_DEF_ SG_  "GwSigLatencyTime" INT 0 65536;
+BA_DEF_ SG_  "GwSigMissingSourceType" ENUM  "Undef","OldValue","DefaultValue","InitialValue";
+BA_DEF_ SG_  "NWM-WakeupAllowed" ENUM  "Undef","OldValue","DefaultValue","InitialValue";
+BA_DEF_ SG_  "UndefinedValueRangeBegin" INT 0 0;
+BA_DEF_ SG_  "RoutingFactor" INT 1 1215752192;
+BA_DEF_  "Datarate" INT 2000000 8000000;
+BA_DEF_DEF_  "CANFD_BRS" "1";
+BA_DEF_DEF_  "BusType" "CAN FD";
+BA_DEF_DEF_  "DBName" "";
+BA_DEF_DEF_  "Baudrate" 500000;
+BA_DEF_DEF_  "BRS" 1;
+BA_DEF_DEF_  "GenEnvVarEndingDsp" "Dsp_";
+BA_DEF_DEF_  "GenEnvVarEndingSnd" "_";
+BA_DEF_DEF_  "GenEnvVarPrefix" "Env";
+BA_DEF_DEF_  "GenNWMApBusSleep" "AppNmCanBusSleep()";
+BA_DEF_DEF_  "GenNWMApCanNormal" "AppNmCanNormal()";
+BA_DEF_DEF_  "GenNWMApCanOff" "ApplCanOffline()";
+BA_DEF_DEF_  "GenNWMApCanOn" "ApplCanOnline()";
+BA_DEF_DEF_  "GenNWMApCanSleep" "ApplNmCanSleep()";
+BA_DEF_DEF_  "GenNWMApCanWakeUp" "ApplCanWakeUp()";
+BA_DEF_DEF_  "GenNWMGotoMode_Awake" "GotoMode_Awake()";
+BA_DEF_DEF_  "GenNWMGotoMode_BusSleep" "GotoMode_BusSleep()";
+BA_DEF_DEF_  "GenNWMSleepTime" 1500;
+BA_DEF_DEF_  "GenNWMTalkNM" "TalkNM()";
+BA_DEF_DEF_  "Manufacturer" "HMC";
+BA_DEF_DEF_  "NmBaseAddress" 1280;
+BA_DEF_DEF_  "NmMessageCount" 0;
+BA_DEF_DEF_  "NmType" "Vector";
+BA_DEF_DEF_  "SamplePointMax" 80;
+BA_DEF_DEF_  "SamplePointMin" 80;
+BA_DEF_DEF_  "SyncJumpWidthMax" 3;
+BA_DEF_DEF_  "SyncJumpWidthMin" 2;
+BA_DEF_DEF_  "VersionDay" 1;
+BA_DEF_DEF_  "VersionMonth" 1;
+BA_DEF_DEF_  "VersionNumber" 0;
+BA_DEF_DEF_  "VersionNumberInternal" 0;
+BA_DEF_DEF_  "VersionWeek" 1;
+BA_DEF_DEF_  "VersionYear" 0;
+BA_DEF_DEF_  "NmStationAddress" 0;
+BA_DEF_DEF_  "NmNode" "Yes";
+BA_DEF_DEF_  "CANoeDrift" 0;
+BA_DEF_DEF_  "CANoeJitterMax" 0;
+BA_DEF_DEF_  "CANoeJitterMin" 0;
+BA_DEF_DEF_  "CANoeStartDelay" 0;
+BA_DEF_DEF_  "GenNodSleepTime" 1500;
+BA_DEF_DEF_  "ILUsed" "Yes";
+BA_DEF_DEF_  "NmCAN" 1;
+BA_DEF_DEF_  "NodeLayerModules" "CANoeILNLVector.dll";
+BA_DEF_DEF_  "NWM_Knoten" "Yes";
+BA_DEF_DEF_  "TpRxIdentifier" 0;
+BA_DEF_DEF_  "TpTxIdentifier" 0;
+BA_DEF_DEF_  "GenMsgCycleTime" 200;
+BA_DEF_DEF_  "GenMsgStartDelayTime" 0;
+BA_DEF_DEF_  "GenMsgSendType" "NoMsgSendType";
+BA_DEF_DEF_  "GenMsgCycleTimeFast" 40;
+BA_DEF_DEF_  "GenMsgDelayTime" 0;
+BA_DEF_DEF_  "GenMsgFastOnStart" 0;
+BA_DEF_DEF_  "GenMsgILSupport" "Yes";
+BA_DEF_DEF_  "GenMsgMinAcceptLength" 0;
+BA_DEF_DEF_  "GenMsgNrOfRepetition" 3;
+BA_DEF_DEF_  "NmMessage" "No";
+BA_DEF_DEF_  "NWM-Botschaft" "No";
+BA_DEF_DEF_  "TPTxIndex" 0;
+BA_DEF_DEF_  "VFrameFormat" "StandardCAN";
+BA_DEF_DEF_  "SignalLongName" "";
+BA_DEF_DEF_  "UserSigValidity" "IG";
+BA_DEF_DEF_  "GenSigTimeoutTime" 500;
+BA_DEF_DEF_  "UsrSigTimeoutValue" "Undef";
+BA_DEF_DEF_  "UsrSigPurpose" "FN";
+BA_DEF_DEF_  "GenSigStartValue" 0;
+BA_DEF_DEF_  "NetworkRequest" "No";
+BA_DEF_DEF_  "NetworkRequestHoldingTime" 0;
+BA_DEF_DEF_  "Description" "";
+BA_DEF_DEF_  "Version" "";
+BA_DEF_DEF_  "GenSigEnvVarType" "Undef";
+BA_DEF_DEF_  "GenSigEVName" "";
+BA_DEF_DEF_  "GenSigInactiveValue" 0;
+BA_DEF_DEF_  "GenSigSendType" "Cyclic";
+BA_DEF_DEF_  "GenSigTimeoutMsg" 0;
+BA_DEF_DEF_  "GwSigLatencyTime" 40;
+BA_DEF_DEF_  "GwSigMissingSourceType" "Undef";
+BA_DEF_DEF_  "NWM-WakeupAllowed" "";
+BA_DEF_DEF_  "UndefinedValueRangeBegin" 0;
+BA_DEF_DEF_  "RoutingFactor" 1;
+BA_DEF_DEF_  "Datarate" 2000000;
+BA_ "Manufacturer" "MANDO";
+BA_ "Baudrate" 1000000;
+BA_ "BusType" "CAN";
+BA_ "NmMessageCount" 8;
+BA_ "VersionWeek" 44;
+BA_ "VersionYear" 0;
+BA_ "VersionMonth" 11;
+BA_ "DBName" "CAN_MSTG_Rev1_7";
+BA_ "NmStationAddress" BU_ NODE_05 0;
+BA_ "NmStationAddress" BU_ NODE_04 0;
+BA_ "NmStationAddress" BU_ NODE_03 0;
+BA_ "NmStationAddress" BU_ NODE_02 0;
+BA_ "NmStationAddress" BU_ NODE_01 64;
+BA_ "GenMsgCycleTime" BO_ 28 200;
+BA_ "GenMsgCycleTime" BO_ 26 200;
+BA_ "GenMsgCycleTime" BO_ 48 200;
+BA_ "GenMsgCycleTime" BO_ 45 200;
+BA_ "GenMsgCycleTime" BO_ 44 200;
+BA_ "GenMsgCycleTime" BO_ 43 200;
+BA_ "GenMsgCycleTime" BO_ 42 200;
+BA_ "GenMsgCycleTime" BO_ 41 200;
+BA_ "GenMsgCycleTime" BO_ 40 200;
+BA_ "GenMsgCycleTime" BO_ 39 200;
+BA_ "GenMsgCycleTime" BO_ 38 200;
+BA_ "GenMsgCycleTime" BO_ 37 200;
+BA_ "GenMsgCycleTime" BO_ 36 200;
+BA_ "GenMsgCycleTime" BO_ 35 200;
+BA_ "GenMsgCycleTime" BO_ 34 200;
+BA_ "GenMsgCycleTime" BO_ 33 200;
+BA_ "GenMsgCycleTime" BO_ 32 200;
+BA_ "GenMsgCycleTime" BO_ 31 200;
+BA_ "GenMsgCycleTime" BO_ 30 200;
+BA_ "GenMsgCycleTime" BO_ 27 200;
+BA_ "GenMsgCycleTime" BO_ 25 200;
+BA_ "GenMsgCycleTime" BO_ 24 200;
+BA_ "GenMsgCycleTime" BO_ 23 200;
+BA_ "GenMsgCycleTime" BO_ 22 200;
+BA_ "GenMsgCycleTime" BO_ 21 200;
+BA_ "GenMsgCycleTime" BO_ 20 200;
+BA_ "GenMsgCycleTime" BO_ 19 200;
+BA_ "GenMsgCycleTime" BO_ 4 200;
+BA_ "GenMsgCycleTime" BO_ 3 200;
+BA_ "GenMsgCycleTime" BO_ 1 200;
+BA_ "GenMsgCycleTime" BO_ 62 200;
+
+
+
+

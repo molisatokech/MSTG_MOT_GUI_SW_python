@@ -1,0 +1,5 @@
+cantools==38.0.2
+intelhex==2.3.0
+PyQt5_sip==12.15.0
+pyqtgraph==0.13.7
+python_can==4.4.2
