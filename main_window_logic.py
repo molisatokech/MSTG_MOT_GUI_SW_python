@@ -352,8 +352,10 @@ def send_multi_messages(window):
     for slot in window.multi_slots:
         if not slot.get("enabled", False):
             continue
+        if not slot.get("tx_ready", False):
+            continue
 
-        message_name = slot.get("message_name")
+        message_name = slot.get("tx_message_name")
         if not message_name:
             continue
 
@@ -362,7 +364,8 @@ def send_multi_messages(window):
         if not message:
             continue
 
-        message_data = slot.get("signal_values") or {}
+        message_data = {sig.name: 0 for sig in message.signals}
+        message_data.update(slot.get("tx_applied_values") or {})
         try:
             raw_payload = _build_raw_payload(message, message_data)
             encoded_data = message.encode(raw_payload, scaling=False)
@@ -378,6 +381,41 @@ def send_multi_messages(window):
                 )
         except (ValueError, KeyError, cantools.database.errors.EncodeError) as e:
             print(f"[TX][MULTI] Failed to send {message_name}: {e}")
+
+
+def send_common_message_to_ids(window, message_name: str, signal_values: dict, target_ids):
+    if window.bus is None or window.db is None:
+        return
+    if not message_name:
+        return
+
+    message = window.db.get_message_by_name(message_name)
+    if not message:
+        return
+
+    message_data = {sig.name: 0 for sig in message.signals}
+    message_data.update(signal_values or {})
+
+    try:
+        raw_payload = _build_raw_payload(message, message_data)
+        encoded_data = message.encode(raw_payload, scaling=False)
+    except (ValueError, KeyError, cantools.database.errors.EncodeError) as e:
+        print(f"[TX][COMMON] Failed to encode {message_name}: {e}")
+        return
+
+    for target_id in target_ids:
+        slot_id = int(target_id) & 0x1F
+        frame_id = (slot_id << 6) | (message.frame_id & 0x3F)
+        msg = can.Message(arbitration_id=frame_id, data=encoded_data, is_extended_id=False)
+        try:
+            window.bus.send(msg)
+            if getattr(window, "debug_output", False):
+                hex_payload = " ".join(f"{byte:02X}" for byte in msg.data)
+                print(
+                    f"[TX][COMMON] id={slot_id} {message.name} (0x{frame_id:03X}) :: {hex_payload} | raw={raw_payload}"
+                )
+        except Exception as e:
+            print(f"[TX][COMMON] Failed to send id={slot_id} {message_name}: {e}")
 
 
 def update_data_display(window):

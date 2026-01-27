@@ -170,6 +170,38 @@ class MainWindow(QMainWindow):
         top.addStretch(1)
         layout.addLayout(top)
 
+        self.multi_common_group = QGroupBox("Common (send once to all slot IDs)")
+        common_layout = QVBoxLayout()
+        common_row = QHBoxLayout()
+        common_row.addWidget(QLabel("Message:"))
+        self.multi_common_message_combo = QComboBox()
+        self.multi_common_message_combo.setEditable(True)
+        self.multi_common_message_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.multi_common_message_combo.activated[str].connect(
+            lambda text: self._multi_common_set_message(text)
+        )
+        self.multi_common_message_combo.lineEdit().editingFinished.connect(
+            self._multi_common_message_edit_finished
+        )
+        common_row.addWidget(self.multi_common_message_combo, 1)
+
+        self.multi_common_send_button = QPushButton("Send")
+        self.multi_common_send_button.clicked.connect(self._multi_common_send)
+        common_row.addWidget(self.multi_common_send_button)
+        common_layout.addLayout(common_row)
+
+        self.multi_common_signals_container = QWidget()
+        self.multi_common_signals_form = QFormLayout()
+        self.multi_common_signals_container.setLayout(self.multi_common_signals_form)
+        self.multi_common_signals_scroll = QScrollArea()
+        self.multi_common_signals_scroll.setWidgetResizable(True)
+        self.multi_common_signals_scroll.setWidget(self.multi_common_signals_container)
+        self.multi_common_signals_scroll.setMinimumHeight(120)
+        common_layout.addWidget(self.multi_common_signals_scroll)
+
+        self.multi_common_group.setLayout(common_layout)
+        layout.addWidget(self.multi_common_group)
+
         self.multi_cards_container = QWidget()
         self.multi_cards_layout = QHBoxLayout()
         self.multi_cards_layout.setContentsMargins(0, 0, 0, 0)
@@ -288,28 +320,37 @@ class MainWindow(QMainWindow):
         row.addStretch(1)
         group_layout.addLayout(row)
 
-        msg_row = QHBoxLayout()
-        msg_row.addWidget(QLabel("Message:"))
-        message_combo = QComboBox()
-        message_combo.setEditable(True)
-        message_combo.setInsertPolicy(QComboBox.NoInsert)
-        message_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        message_combo.activated[str].connect(
-            lambda text, i=slot_index: self._multi_set_slot_message(i, text)
+        tx_row = QHBoxLayout()
+        tx_row.addWidget(QLabel("TX Msg:"))
+        tx_message_combo = QComboBox()
+        tx_message_combo.setEditable(True)
+        tx_message_combo.setInsertPolicy(QComboBox.NoInsert)
+        tx_message_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        tx_message_combo.activated[str].connect(
+            lambda text, i=slot_index: self._multi_set_slot_tx_message(i, text)
         )
-        message_combo.lineEdit().editingFinished.connect(
-            lambda i=slot_index: self._multi_message_edit_finished(i)
+        tx_message_combo.lineEdit().editingFinished.connect(
+            lambda i=slot_index: self._multi_tx_message_edit_finished(i)
         )
-        msg_row.addWidget(message_combo, 1)
-        group_layout.addLayout(msg_row)
+        tx_row.addWidget(tx_message_combo, 1)
+        tx_apply_btn = QPushButton("Update")
+        tx_apply_btn.clicked.connect(lambda _, i=slot_index: self._multi_apply_slot_tx(i))
+        tx_row.addWidget(tx_apply_btn)
+        group_layout.addLayout(tx_row)
 
         graph_row = QHBoxLayout()
-        graph_row.addWidget(QLabel("Graph Signal:"))
-        graph_sig_combo = QComboBox()
-        graph_sig_combo.currentTextChanged.connect(
-            lambda text, i=slot_index: self._multi_set_graph_signal(i, text)
+        graph_row.addWidget(QLabel("Graph:"))
+        graph_item_combo = QComboBox()
+        graph_item_combo.setEditable(True)
+        graph_item_combo.setInsertPolicy(QComboBox.NoInsert)
+        graph_item_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        graph_item_combo.activated[str].connect(
+            lambda text, i=slot_index: self._multi_set_slot_graph_item(i, text)
         )
-        graph_row.addWidget(graph_sig_combo, 1)
+        graph_item_combo.lineEdit().editingFinished.connect(
+            lambda i=slot_index: self._multi_graph_item_edit_finished(i)
+        )
+        graph_row.addWidget(graph_item_combo, 1)
         group_layout.addLayout(graph_row)
 
         signals_container = QWidget()
@@ -327,98 +368,160 @@ class MainWindow(QMainWindow):
         slot["_ui"] = {
             "group": group,
             "curve": curve,
-            "message_combo": message_combo,
-            "graph_sig_combo": graph_sig_combo,
+            "tx_message_combo": tx_message_combo,
+            "tx_apply_btn": tx_apply_btn,
+            "graph_item_combo": graph_item_combo,
             "signals_form": signals_form,
+            "signal_fields": {},
         }
 
-        if self.db is not None and slot.get("message_name"):
-            self._multi_rebuild_slot_message_ui(slot_index)
+        if self.db is not None and slot.get("tx_message_name"):
+            self._multi_rebuild_slot_tx_ui(slot_index)
+        if self.db is not None and slot.get("graph_message_name") and slot.get("graph_signal"):
+            graph_item_combo.setCurrentText(
+                f"{slot.get('graph_message_name')}.{slot.get('graph_signal')}"
+            )
 
         return group
 
-    def _multi_message_edit_finished(self, slot_index: int):
+    def _multi_tx_message_edit_finished(self, slot_index: int):
+        self._multi_validate_tx_message_combo(slot_index)
+
+    def _multi_validate_tx_message_combo(self, slot_index: int):
         if not (0 <= slot_index < len(self.multi_slots)):
             return
         slot = self.multi_slots[slot_index]
-        combo = slot.get("_ui", {}).get("message_combo")
+        ui = slot.get("_ui", {})
+        combo = ui.get("tx_message_combo")
         if combo is None:
             return
 
         text = combo.currentText().strip()
         if text == "":
-            self._multi_set_slot_message(slot_index, "")
-            return
-        if text in self._multi_message_name_set:
-            self._multi_set_slot_message(slot_index, text)
+            self._multi_set_slot_tx_message(slot_index, "")
             return
 
-        prev = slot.get("message_name") or ""
+        if text in self._multi_message_name_set:
+            self._multi_set_slot_tx_message(slot_index, text)
+            return
+
+        prev = slot.get("tx_message_name")
         combo.blockSignals(True)
-        combo.setCurrentText(prev)
+        combo.setCurrentText(prev or "")
         combo.blockSignals(False)
 
-    def _multi_set_slot_message(self, slot_index: int, message_name: str):
+    def _multi_set_slot_tx_message(self, slot_index: int, message_name: str):
         if not (0 <= slot_index < len(self.multi_slots)):
             return
-
         slot = self.multi_slots[slot_index]
         name = (message_name or "").strip()
         if name == "":
-            slot["message_name"] = None
+            slot["tx_message_name"] = None
         elif name in self._multi_message_name_set:
-            slot["message_name"] = name
+            slot["tx_message_name"] = name
         else:
             return
+        slot["tx_pending_values"] = {}
+        slot["tx_applied_values"] = {}
+        slot["tx_ready"] = False
+        self._multi_rebuild_slot_tx_ui(slot_index)
 
+    def _multi_graph_item_edit_finished(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        combo = self.multi_slots[slot_index].get("_ui", {}).get("graph_item_combo")
+        if combo is None:
+            return
+
+        text = combo.currentText().strip()
+        if text == "":
+            self._multi_set_slot_graph_item(slot_index, "")
+            return
+        if text in getattr(self, "_multi_graph_items_set", set()):
+            self._multi_set_slot_graph_item(slot_index, text)
+            return
+
+        prev_msg = self.multi_slots[slot_index].get("graph_message_name")
+        prev_sig = self.multi_slots[slot_index].get("graph_signal")
+        combo.blockSignals(True)
+        combo.setCurrentText(f"{prev_msg}.{prev_sig}" if prev_msg and prev_sig else "")
+        combo.blockSignals(False)
+
+    def _multi_set_slot_graph_item(self, slot_index: int, item: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        text = (item or "").strip()
+        if text == "":
+            slot["graph_message_name"] = None
+            slot["graph_signal"] = None
+            return
+        if "." not in text:
+            return
+        msg_name, sig_name = text.split(".", 1)
+        if msg_name not in self._multi_message_name_set or self.db is None:
+            return
+        message = self.db.get_message_by_name(msg_name)
+        if not message or sig_name not in [s.name for s in message.signals]:
+            return
+
+        slot["graph_message_name"] = msg_name
+        slot["graph_signal"] = sig_name
         slot["time"].clear()
         slot["values"].clear()
         slot["start"] = None
-        self._multi_rebuild_slot_message_ui(slot_index)
 
-    def _multi_rebuild_slot_message_ui(self, slot_index: int):
+    def _multi_rebuild_slot_tx_ui(self, slot_index: int):
         slot = self.multi_slots[slot_index]
         ui = slot.get("_ui", {})
-        graph_sig_combo = ui.get("graph_sig_combo")
         signals_form = ui.get("signals_form")
-        if graph_sig_combo is None or signals_form is None:
+        if signals_form is None:
             return
 
         while signals_form.rowCount():
             signals_form.removeRow(0)
+        ui["signal_fields"] = {}
 
-        graph_sig_combo.blockSignals(True)
-        graph_sig_combo.clear()
-
-        name = slot.get("message_name")
+        name = slot.get("tx_message_name")
         if self.db is None or not name:
-            graph_sig_combo.blockSignals(False)
             return
 
         message = self.db.get_message_by_name(name)
         if not message:
-            graph_sig_combo.blockSignals(False)
             return
 
+        pending = slot.get("tx_pending_values", {})
+        applied = slot.get("tx_applied_values", {})
         for sig in message.signals:
-            graph_sig_combo.addItem(sig.name)
-
-        if graph_sig_combo.count() > 0:
-            graph_sig_combo.setCurrentIndex(0)
-            slot["graph_signal"] = graph_sig_combo.currentText()
-
-        graph_sig_combo.blockSignals(False)
-
-        values = slot["signal_values"]
-        for sig in message.signals:
-            values.setdefault(sig.name, 0)
-            field = QLineEdit(str(values[sig.name]))
-            field.textChanged.connect(
-                lambda text, s=sig.name, i=slot_index: self._multi_set_signal_text(
-                    i, s, text
-                )
-            )
+            if sig.name not in pending:
+                pending[sig.name] = applied.get(sig.name, 0)
+            field = QLineEdit(str(pending.get(sig.name, 0)))
             signals_form.addRow(sig.name, field)
+            ui["signal_fields"][sig.name] = field
+
+    def _multi_apply_slot_tx(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        ui = slot.get("_ui", {})
+        fields = ui.get("signal_fields", {})
+        if not fields:
+            return
+
+        new_values = {}
+        for name, field in fields.items():
+            text = field.text().strip()
+            if text == "":
+                continue
+            try:
+                new_values[name] = float(text) if "." in text else int(text)
+            except ValueError:
+                logic.show_message(self, "Error", f"Invalid value: {name} = '{text}'")
+                return
+
+        slot["tx_applied_values"] = {**slot.get("tx_applied_values", {}), **new_values}
+        slot["tx_pending_values"] = {**slot.get("tx_pending_values", {}), **new_values}
+        slot["tx_ready"] = True
 
     def add_multi_slot(self):
         if len(self.multi_slots) >= 8:
@@ -427,9 +530,12 @@ class MainWindow(QMainWindow):
         slot = {
             "enabled": True,
             "id": 1,
-            "message_name": None,
+            "tx_message_name": None,
+            "tx_pending_values": {},
+            "tx_applied_values": {},
+            "tx_ready": False,
+            "graph_message_name": None,
             "graph_signal": None,
-            "signal_values": {},
             "time": deque(maxlen=500),
             "values": deque(maxlen=500),
             "start": None,
@@ -446,8 +552,7 @@ class MainWindow(QMainWindow):
             self.multi_slots[slot_index]["id"] = value
 
     def _multi_set_graph_signal(self, slot_index: int, text: str):
-        if 0 <= slot_index < len(self.multi_slots):
-            self.multi_slots[slot_index]["graph_signal"] = text or None
+        self._multi_set_slot_graph_item(slot_index, text)
 
     def _multi_edit_slot(self, slot_index: int):
         return
@@ -458,6 +563,70 @@ class MainWindow(QMainWindow):
         self.multi_slots.pop(slot_index)
         self._rebuild_multi_cards()
 
+    def _multi_common_message_edit_finished(self):
+        combo = getattr(self, "multi_common_message_combo", None)
+        if combo is None:
+            return
+        text = combo.currentText().strip()
+        if text == "":
+            self._multi_common_set_message("")
+            return
+        if text in self._multi_message_name_set:
+            self._multi_common_set_message(text)
+            return
+        combo.blockSignals(True)
+        combo.setCurrentText("")
+        combo.blockSignals(False)
+
+    def _multi_common_set_message(self, message_name: str):
+        name = (message_name or "").strip()
+
+        while self.multi_common_signals_form.rowCount():
+            self.multi_common_signals_form.removeRow(0)
+        self._multi_common_signal_fields = {}
+
+        if self.db is None or not name:
+            self.multi_common_message_name = None
+            return
+        if name not in self._multi_message_name_set:
+            return
+
+        self.multi_common_message_name = name
+        message = self.db.get_message_by_name(name)
+        if not message:
+            return
+
+        for sig in message.signals:
+            field = QLineEdit("0")
+            self.multi_common_signals_form.addRow(sig.name, field)
+            self._multi_common_signal_fields[sig.name] = field
+
+    def _multi_common_send(self):
+        if self.bus is None or self.db is None:
+            return
+        message_name = getattr(self, "multi_common_message_name", None)
+        if not message_name:
+            return
+
+        values = {}
+        for name, field in getattr(self, "_multi_common_signal_fields", {}).items():
+            text = field.text().strip()
+            if text == "":
+                continue
+            try:
+                values[name] = float(text) if "." in text else int(text)
+            except ValueError:
+                logic.show_message(self, "Error", f"Invalid value: {name} = '{text}'")
+                return
+
+        target_ids = sorted(
+            {int(s.get("id", 0)) & 0x1F for s in self.multi_slots if s.get("enabled", False)}
+        )
+        if not target_ids:
+            return
+
+        logic.send_common_message_to_ids(self, message_name, values, target_ids)
+
     def refresh_multi_message_list(self):
         self._multi_message_names = []
         self._multi_message_name_set = set()
@@ -465,28 +634,64 @@ class MainWindow(QMainWindow):
             self._multi_message_names = [m.name for m in self.db.messages]
             self._multi_message_name_set = set(self._multi_message_names)
 
-        for slot in self.multi_slots:
-            combo = slot.get("_ui", {}).get("message_combo")
-            if combo is None:
+        graph_items = []
+        if self.db is not None:
+            for msg in self.db.messages:
+                for sig in msg.signals:
+                    graph_items.append(f"{msg.name}.{sig.name}")
+        self._multi_graph_items = graph_items
+        self._multi_graph_items_set = set(graph_items)
+
+        for slot_index, slot in enumerate(self.multi_slots):
+            ui = slot.get("_ui", {})
+            tx_combo = ui.get("tx_message_combo")
+            graph_combo = ui.get("graph_item_combo")
+            if tx_combo is None or graph_combo is None:
                 continue
 
-            combo.blockSignals(True)
-            combo.clear()
-            combo.addItem("")
-            combo.addItems(self._multi_message_names)
-            combo.setEnabled(bool(self._multi_message_names))
+            for combo, current, items in [
+                (tx_combo, slot.get("tx_message_name") or "", self._multi_message_names),
+                (
+                    graph_combo,
+                    (
+                        f"{slot.get('graph_message_name')}.{slot.get('graph_signal')}"
+                        if slot.get("graph_message_name") and slot.get("graph_signal")
+                        else ""
+                    ),
+                    self._multi_graph_items,
+                ),
+            ]:
+                combo.blockSignals(True)
+                combo.clear()
+                combo.addItem("")
+                combo.addItems(items)
+                combo.setEnabled(bool(items))
 
+                completer = QCompleter(items)
+                completer.setCaseSensitivity(Qt.CaseInsensitive)
+                completer.setFilterMode(Qt.MatchContains)
+                combo.setCompleter(completer)
+
+                if current and current in set(items):
+                    combo.setCurrentText(current)
+                else:
+                    combo.setCurrentIndex(0)
+                combo.blockSignals(False)
+
+            if slot.get("tx_message_name"):
+                self._multi_rebuild_slot_tx_ui(slot_index)
+
+        if hasattr(self, "multi_common_message_combo"):
+            self.multi_common_message_combo.blockSignals(True)
+            self.multi_common_message_combo.clear()
+            self.multi_common_message_combo.addItem("")
+            self.multi_common_message_combo.addItems(self._multi_message_names)
+            self.multi_common_message_combo.setEnabled(bool(self._multi_message_names))
             completer = QCompleter(self._multi_message_names)
             completer.setCaseSensitivity(Qt.CaseInsensitive)
             completer.setFilterMode(Qt.MatchContains)
-            combo.setCompleter(completer)
-
-            current = slot.get("message_name") or ""
-            if current and current in self._multi_message_name_set:
-                combo.setCurrentText(current)
-            else:
-                combo.setCurrentIndex(0)
-            combo.blockSignals(False)
+            self.multi_common_message_combo.setCompleter(completer)
+            self.multi_common_message_combo.blockSignals(False)
 
     def _on_multi_message_chosen(self, item: QListWidgetItem):
         if self._multi_active_slot_index is None:
@@ -565,7 +770,7 @@ class MainWindow(QMainWindow):
 
     def multi_graph_on_rx(self, node_id: int, message_name: str, decoded_data: dict):
         for slot in self.multi_slots:
-            if slot.get("message_name") != message_name:
+            if slot.get("graph_message_name") != message_name:
                 continue
             if int(slot.get("id", 0)) != int(node_id):
                 continue
