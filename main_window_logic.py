@@ -118,6 +118,8 @@ def load_dbc_file(window):
             update_message_list(window)
             update_graph_data_combo(window)
             detect_dbc_structure(window)
+            if hasattr(window, "refresh_multi_message_list"):
+                window.refresh_multi_message_list()
             show_message(
                 window, "DBC File Loaded", f"DBC file {file_name} loaded successfully."
             )
@@ -341,6 +343,43 @@ def send_messages_containing(window, keyword):
                 send_message(window, message_name)
 
 
+def send_multi_messages(window):
+    if window.bus is None or window.db is None:
+        return
+    if not hasattr(window, "multi_slots"):
+        return
+
+    for slot in window.multi_slots:
+        if not slot.get("enabled", False):
+            continue
+
+        message_name = slot.get("message_name")
+        if not message_name:
+            continue
+
+        slot_id = int(slot.get("id", 0)) & 0x1F
+        message = window.db.get_message_by_name(message_name)
+        if not message:
+            continue
+
+        message_data = slot.get("signal_values") or {}
+        try:
+            raw_payload = _build_raw_payload(message, message_data)
+            encoded_data = message.encode(raw_payload, scaling=False)
+            frame_id = (slot_id << 6) | (message.frame_id & 0x3F)
+            msg = can.Message(
+                arbitration_id=frame_id, data=encoded_data, is_extended_id=False
+            )
+            window.bus.send(msg)
+            if getattr(window, "debug_output", False):
+                hex_payload = " ".join(f"{byte:02X}" for byte in msg.data)
+                print(
+                    f"[TX][MULTI] id={slot_id} {message.name} (0x{frame_id:03X}) :: {hex_payload} | raw={raw_payload}"
+                )
+        except (ValueError, KeyError, cantools.database.errors.EncodeError) as e:
+            print(f"[TX][MULTI] Failed to send {message_name}: {e}")
+
+
 def update_data_display(window):
     user_id = int(window.id_input.text()) & 0x1F
     if window.current_message_name in window.message_data_dicts[user_id]:
@@ -431,6 +470,9 @@ def update_graph_data_combo(window):
 
 
 def update_graph(window):
+    if not getattr(window, "single_graph_active", True):
+        return
+
     selected = window.graph_data_combo.currentText()
     selected2 = window.graph_data_combo2.currentText()
 
@@ -621,6 +663,9 @@ def handle_received_message(window, msg):
         user_id = int(window.id_input.text()) & 0x1F
 
         full_message_name = message.name
+
+        if hasattr(window, "multi_graph_on_rx"):
+            window.multi_graph_on_rx(upper_5_bits_id, full_message_name, decoded_data)
 
         if upper_5_bits_id == user_id:
             if full_message_name not in window.message_data_dicts[user_id]:
