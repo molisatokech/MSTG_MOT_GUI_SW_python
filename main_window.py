@@ -347,6 +347,9 @@ class MainWindow(QMainWindow):
         graph_item_combo.activated[str].connect(
             lambda text, i=slot_index: self._multi_set_slot_graph_item(i, text)
         )
+        graph_item_combo.currentTextChanged.connect(
+            lambda text, i=slot_index: self._multi_graph_item_text_changed(i, text)
+        )
         graph_item_combo.lineEdit().editingFinished.connect(
             lambda i=slot_index: self._multi_graph_item_edit_finished(i)
         )
@@ -447,6 +450,16 @@ class MainWindow(QMainWindow):
         combo.setCurrentText(f"{prev_msg}.{prev_sig}" if prev_msg and prev_sig else "")
         combo.blockSignals(False)
 
+    def _multi_graph_item_text_changed(self, slot_index: int, text: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        value = (text or "").strip()
+        if value == "":
+            self._multi_set_slot_graph_item(slot_index, "")
+            return
+        if value in getattr(self, "_multi_graph_items_set", set()):
+            self._multi_set_slot_graph_item(slot_index, value)
+
     def _multi_set_slot_graph_item(self, slot_index: int, item: str):
         if not (0 <= slot_index < len(self.multi_slots)):
             return
@@ -455,6 +468,9 @@ class MainWindow(QMainWindow):
         if text == "":
             slot["graph_message_name"] = None
             slot["graph_signal"] = None
+            slot["time"].clear()
+            slot["values"].clear()
+            slot["start"] = None
             return
         if "." not in text:
             return
