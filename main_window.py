@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtWidgets import QGridLayout, QScrollArea, QComboBox, QCheckBox
 from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QGroupBox, QWidget
 from PyQt5.QtWidgets import QProgressDialog, QProgressBar, QSplitter
-from PyQt5.QtWidgets import QTabWidget, QStackedWidget, QSizePolicy
+from PyQt5.QtWidgets import QTabWidget, QSizePolicy, QCompleter
 from PyQt5.QtWidgets import QFormLayout
 from PyQt5.QtWidgets import QSpinBox
 from PyQt5.QtCore import QTimer, Qt
@@ -150,6 +150,7 @@ class MainWindow(QMainWindow):
 
     def setup_multi_panel(self, layout):
         top = QHBoxLayout()
+
         top.addWidget(QLabel("Period (ms):"))
         self.multi_period_ms = QSpinBox()
         self.multi_period_ms.setRange(1, 1000)
@@ -161,45 +162,29 @@ class MainWindow(QMainWindow):
         self.multi_start_button.setCheckable(True)
         self.multi_start_button.toggled.connect(self._toggle_multi_sending)
         top.addWidget(self.multi_start_button)
+
+        self.multi_add_slot_button = QPushButton("+ Add Slot")
+        self.multi_add_slot_button.clicked.connect(self.add_multi_slot)
+        top.addWidget(self.multi_add_slot_button)
+
         top.addStretch(1)
         layout.addLayout(top)
 
-        splitter = QSplitter(Qt.Horizontal)
+        self.multi_cards_container = QWidget()
+        self.multi_cards_layout = QHBoxLayout()
+        self.multi_cards_layout.setContentsMargins(0, 0, 0, 0)
+        self.multi_cards_layout.setSpacing(10)
+        self.multi_cards_container.setLayout(self.multi_cards_layout)
 
-        left = QVBoxLayout()
-        left_top = QHBoxLayout()
-        self.multi_add_slot_button = QPushButton("+ Add")
-        self.multi_add_slot_button.clicked.connect(self.add_multi_slot)
-        left_top.addWidget(self.multi_add_slot_button)
-        left_top.addStretch(1)
-        left.addLayout(left_top)
+        self.multi_cards_scroll = QScrollArea()
+        self.multi_cards_scroll.setWidgetResizable(True)
+        self.multi_cards_scroll.setWidget(self.multi_cards_container)
+        self.multi_cards_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.multi_cards_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        layout.addWidget(self.multi_cards_scroll)
 
-        self.multi_slot_container = QWidget()
-        self.multi_slot_layout = QVBoxLayout()
-        self.multi_slot_layout.setContentsMargins(0, 0, 0, 0)
-        self.multi_slot_layout.setSpacing(8)
-        self.multi_slot_container.setLayout(self.multi_slot_layout)
-
-        slot_scroll = QScrollArea()
-        slot_scroll.setWidgetResizable(True)
-        slot_scroll.setWidget(self.multi_slot_container)
-        left.addWidget(slot_scroll)
-
-        left_widget = QWidget()
-        left_widget.setLayout(left)
-        splitter.addWidget(left_widget)
-
-        self.multi_stack = QStackedWidget()
-        self.multi_browser = QWidget()
-        self.multi_editor = QWidget()
-        self._setup_multi_browser()
-        self._setup_multi_editor()
-        self.multi_stack.addWidget(self.multi_browser)
-        self.multi_stack.addWidget(self.multi_editor)
-        splitter.addWidget(self.multi_stack)
-
-        splitter.setSizes([420, 640])
-        layout.addWidget(splitter)
+        self._multi_message_names = []
+        self._multi_message_name_set = set()
 
         self.add_multi_slot()
 
@@ -251,11 +236,194 @@ class MainWindow(QMainWindow):
             self.multi_start_button.setText("Start")
             self.multi_send_timer.stop()
 
+    def _rebuild_multi_cards(self):
+        while self.multi_cards_layout.count():
+            item = self.multi_cards_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        for idx, slot in enumerate(self.multi_slots):
+            card = self._create_multi_slot_card(idx, slot)
+            self.multi_cards_layout.addWidget(card)
+
+        self.multi_cards_layout.addStretch(1)
+        self.multi_add_slot_button.setEnabled(len(self.multi_slots) < 8)
+
+        self.refresh_multi_message_list()
+        if self.multi_graph_active:
+            self.refresh_multi_graphs()
+
+    def _create_multi_slot_card(self, slot_index: int, slot: dict):
+        group = QGroupBox(f"Slot {slot_index + 1}")
+        group.setMinimumWidth(360)
+        group_layout = QVBoxLayout()
+
+        plot = pg.PlotWidget()
+        plot.setMinimumHeight(120)
+        plot.setBackground("w")
+        plot.showGrid(x=True, y=True, alpha=0.3)
+        curve = plot.plot(pen=pg.mkPen(color=(0, 120, 215), width=1))
+        group_layout.addWidget(plot)
+
+        row = QHBoxLayout()
+        enable_cb = QCheckBox("Enable")
+        enable_cb.setChecked(bool(slot.get("enabled", True)))
+        enable_cb.toggled.connect(
+            lambda checked, i=slot_index: self._multi_set_slot_enabled(i, checked)
+        )
+        row.addWidget(enable_cb)
+
+        row.addWidget(QLabel("ID:"))
+        id_spin = QSpinBox()
+        id_spin.setRange(1, 31)
+        id_spin.setValue(int(slot.get("id", 1)))
+        id_spin.valueChanged.connect(lambda v, i=slot_index: self._multi_set_slot_id(i, v))
+        row.addWidget(id_spin)
+
+        delete_btn = QPushButton("-")
+        delete_btn.clicked.connect(lambda _, i=slot_index: self._multi_delete_slot(i))
+        row.addWidget(delete_btn)
+        row.addStretch(1)
+        group_layout.addLayout(row)
+
+        msg_row = QHBoxLayout()
+        msg_row.addWidget(QLabel("Message:"))
+        message_combo = QComboBox()
+        message_combo.setEditable(True)
+        message_combo.setInsertPolicy(QComboBox.NoInsert)
+        message_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        message_combo.activated[str].connect(
+            lambda text, i=slot_index: self._multi_set_slot_message(i, text)
+        )
+        message_combo.lineEdit().editingFinished.connect(
+            lambda i=slot_index: self._multi_message_edit_finished(i)
+        )
+        msg_row.addWidget(message_combo, 1)
+        group_layout.addLayout(msg_row)
+
+        graph_row = QHBoxLayout()
+        graph_row.addWidget(QLabel("Graph Signal:"))
+        graph_sig_combo = QComboBox()
+        graph_sig_combo.currentTextChanged.connect(
+            lambda text, i=slot_index: self._multi_set_graph_signal(i, text)
+        )
+        graph_row.addWidget(graph_sig_combo, 1)
+        group_layout.addLayout(graph_row)
+
+        signals_container = QWidget()
+        signals_form = QFormLayout()
+        signals_container.setLayout(signals_form)
+
+        signals_scroll = QScrollArea()
+        signals_scroll.setWidgetResizable(True)
+        signals_scroll.setWidget(signals_container)
+        signals_scroll.setMinimumHeight(160)
+        group_layout.addWidget(signals_scroll)
+
+        group.setLayout(group_layout)
+
+        slot["_ui"] = {
+            "group": group,
+            "curve": curve,
+            "message_combo": message_combo,
+            "graph_sig_combo": graph_sig_combo,
+            "signals_form": signals_form,
+        }
+
+        if self.db is not None and slot.get("message_name"):
+            self._multi_rebuild_slot_message_ui(slot_index)
+
+        return group
+
+    def _multi_message_edit_finished(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        combo = slot.get("_ui", {}).get("message_combo")
+        if combo is None:
+            return
+
+        text = combo.currentText().strip()
+        if text == "":
+            self._multi_set_slot_message(slot_index, "")
+            return
+        if text in self._multi_message_name_set:
+            self._multi_set_slot_message(slot_index, text)
+            return
+
+        prev = slot.get("message_name") or ""
+        combo.blockSignals(True)
+        combo.setCurrentText(prev)
+        combo.blockSignals(False)
+
+    def _multi_set_slot_message(self, slot_index: int, message_name: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+
+        slot = self.multi_slots[slot_index]
+        name = (message_name or "").strip()
+        if name == "":
+            slot["message_name"] = None
+        elif name in self._multi_message_name_set:
+            slot["message_name"] = name
+        else:
+            return
+
+        slot["time"].clear()
+        slot["values"].clear()
+        slot["start"] = None
+        self._multi_rebuild_slot_message_ui(slot_index)
+
+    def _multi_rebuild_slot_message_ui(self, slot_index: int):
+        slot = self.multi_slots[slot_index]
+        ui = slot.get("_ui", {})
+        graph_sig_combo = ui.get("graph_sig_combo")
+        signals_form = ui.get("signals_form")
+        if graph_sig_combo is None or signals_form is None:
+            return
+
+        while signals_form.rowCount():
+            signals_form.removeRow(0)
+
+        graph_sig_combo.blockSignals(True)
+        graph_sig_combo.clear()
+
+        name = slot.get("message_name")
+        if self.db is None or not name:
+            graph_sig_combo.blockSignals(False)
+            return
+
+        message = self.db.get_message_by_name(name)
+        if not message:
+            graph_sig_combo.blockSignals(False)
+            return
+
+        for sig in message.signals:
+            graph_sig_combo.addItem(sig.name)
+
+        if graph_sig_combo.count() > 0:
+            graph_sig_combo.setCurrentIndex(0)
+            slot["graph_signal"] = graph_sig_combo.currentText()
+
+        graph_sig_combo.blockSignals(False)
+
+        values = slot["signal_values"]
+        for sig in message.signals:
+            values.setdefault(sig.name, 0)
+            field = QLineEdit(str(values[sig.name]))
+            field.textChanged.connect(
+                lambda text, s=sig.name, i=slot_index: self._multi_set_signal_text(
+                    i, s, text
+                )
+            )
+            signals_form.addRow(sig.name, field)
+
     def add_multi_slot(self):
         if len(self.multi_slots) >= 8:
             return
 
-        slot_index = len(self.multi_slots)
         slot = {
             "enabled": True,
             "id": 1,
@@ -267,72 +435,7 @@ class MainWindow(QMainWindow):
             "start": None,
         }
         self.multi_slots.append(slot)
-
-        group = QGroupBox(f"Slot {slot_index + 1}")
-        group_layout = QVBoxLayout()
-
-        plot = pg.PlotWidget()
-        plot.setMinimumHeight(90)
-        plot.setBackground("w")
-        plot.showGrid(x=True, y=True, alpha=0.3)
-        curve = plot.plot(pen=pg.mkPen(color=(0, 120, 215), width=1))
-        group_layout.addWidget(plot)
-
-        row = QHBoxLayout()
-        enable_cb = QCheckBox("Enable")
-        enable_cb.setChecked(True)
-        enable_cb.toggled.connect(
-            lambda checked, i=slot_index: self._multi_set_slot_enabled(i, checked)
-        )
-        row.addWidget(enable_cb)
-
-        row.addWidget(QLabel("ID:"))
-        id_spin = QSpinBox()
-        id_spin.setRange(1, 31)
-        id_spin.setValue(1)
-        id_spin.valueChanged.connect(lambda v, i=slot_index: self._multi_set_slot_id(i, v))
-        row.addWidget(id_spin)
-
-        msg_label = QLabel("Message: Not selected")
-        msg_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        row.addWidget(msg_label, 1)
-
-        edit_btn = QPushButton("Edit")
-        edit_btn.clicked.connect(lambda _, i=slot_index: self._multi_edit_slot(i))
-        row.addWidget(edit_btn)
-
-        del_btn = QPushButton("−")
-        del_btn.clicked.connect(lambda _, i=slot_index: self._multi_delete_slot(i))
-        row.addWidget(del_btn)
-
-        group_layout.addLayout(row)
-
-        graph_row = QHBoxLayout()
-        graph_row.addWidget(QLabel("Graph Signal:"))
-        sig_combo = QComboBox()
-        sig_combo.currentTextChanged.connect(
-            lambda text, i=slot_index: self._multi_set_graph_signal(i, text)
-        )
-        graph_row.addWidget(sig_combo, 1)
-        group_layout.addLayout(graph_row)
-
-        group.setLayout(group_layout)
-        self.multi_slot_layout.addWidget(group)
-
-        slot["_ui"] = {
-            "group": group,
-            "plot": plot,
-            "curve": curve,
-            "enable": enable_cb,
-            "id": id_spin,
-            "msg_label": msg_label,
-            "sig_combo": sig_combo,
-            "edit_btn": edit_btn,
-            "del_btn": del_btn,
-        }
-
-        if len(self.multi_slots) >= 8:
-            self.multi_add_slot_button.setEnabled(False)
+        self._rebuild_multi_cards()
 
     def _multi_set_slot_enabled(self, slot_index: int, enabled: bool):
         if 0 <= slot_index < len(self.multi_slots):
@@ -347,57 +450,43 @@ class MainWindow(QMainWindow):
             self.multi_slots[slot_index]["graph_signal"] = text or None
 
     def _multi_edit_slot(self, slot_index: int):
-        self._multi_active_slot_index = slot_index
-        self.multi_stack.setCurrentWidget(self.multi_browser)
-        self.refresh_multi_message_list()
+        return
 
     def _multi_delete_slot(self, slot_index: int):
         if not (0 <= slot_index < len(self.multi_slots)):
             return
-
-        slot = self.multi_slots.pop(slot_index)
-        group = slot.get("_ui", {}).get("group")
-        if group is not None:
-            group.setParent(None)
-            group.deleteLater()
-
-        for i, s in enumerate(self.multi_slots):
-            ui = s.get("_ui", {})
-            if not ui:
-                continue
-            ui["group"].setTitle(f"Slot {i + 1}")
-            ui["enable"].toggled.disconnect()
-            ui["enable"].toggled.connect(
-                lambda checked, idx=i: self._multi_set_slot_enabled(idx, checked)
-            )
-            ui["id"].valueChanged.disconnect()
-            ui["id"].valueChanged.connect(
-                lambda v, idx=i: self._multi_set_slot_id(idx, v)
-            )
-            ui["sig_combo"].currentTextChanged.disconnect()
-            ui["sig_combo"].currentTextChanged.connect(
-                lambda text, idx=i: self._multi_set_graph_signal(idx, text)
-            )
-            ui["edit_btn"].clicked.disconnect()
-            ui["edit_btn"].clicked.connect(lambda _, idx=i: self._multi_edit_slot(idx))
-            ui["del_btn"].clicked.disconnect()
-            ui["del_btn"].clicked.connect(lambda _, idx=i: self._multi_delete_slot(idx))
-
-        self.multi_add_slot_button.setEnabled(len(self.multi_slots) < 8)
+        self.multi_slots.pop(slot_index)
+        self._rebuild_multi_cards()
 
     def refresh_multi_message_list(self):
-        self.multi_message_list.clear()
-        if self.db is None:
-            return
+        self._multi_message_names = []
+        self._multi_message_name_set = set()
+        if self.db is not None:
+            self._multi_message_names = [m.name for m in self.db.messages]
+            self._multi_message_name_set = set(self._multi_message_names)
 
-        q = (self.multi_search.text() or "").strip().lower()
-        for msg in self.db.messages:
-            name = msg.name
-            if q and q not in name.lower():
+        for slot in self.multi_slots:
+            combo = slot.get("_ui", {}).get("message_combo")
+            if combo is None:
                 continue
-            item = QListWidgetItem(f"{name}   (0x{msg.frame_id:03X}, dlc={msg.length})")
-            item.setData(Qt.UserRole, name)
-            self.multi_message_list.addItem(item)
+
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem("")
+            combo.addItems(self._multi_message_names)
+            combo.setEnabled(bool(self._multi_message_names))
+
+            completer = QCompleter(self._multi_message_names)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchContains)
+            combo.setCompleter(completer)
+
+            current = slot.get("message_name") or ""
+            if current and current in self._multi_message_name_set:
+                combo.setCurrentText(current)
+            else:
+                combo.setCurrentIndex(0)
+            combo.blockSignals(False)
 
     def _on_multi_message_chosen(self, item: QListWidgetItem):
         if self._multi_active_slot_index is None:
