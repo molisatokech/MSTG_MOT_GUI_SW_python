@@ -200,7 +200,6 @@ class MainWindow(QMainWindow):
         common_layout.addWidget(self.multi_common_signals_scroll)
 
         self.multi_common_group.setLayout(common_layout)
-        layout.addWidget(self.multi_common_group)
 
         self.multi_cards_container = QWidget()
         self.multi_cards_layout = QHBoxLayout()
@@ -213,7 +212,11 @@ class MainWindow(QMainWindow):
         self.multi_cards_scroll.setWidget(self.multi_cards_container)
         self.multi_cards_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.multi_cards_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        layout.addWidget(self.multi_cards_scroll)
+        self.multi_vertical_splitter = QSplitter(Qt.Vertical)
+        self.multi_vertical_splitter.addWidget(self.multi_common_group)
+        self.multi_vertical_splitter.addWidget(self.multi_cards_scroll)
+        self.multi_vertical_splitter.setSizes([220, 600])
+        layout.addWidget(self.multi_vertical_splitter)
 
         self._multi_message_names = []
         self._multi_message_name_set = set()
@@ -292,12 +295,18 @@ class MainWindow(QMainWindow):
         group.setMinimumWidth(360)
         group_layout = QVBoxLayout()
 
+        splitter = QSplitter(Qt.Vertical)
+
         plot = pg.PlotWidget()
         plot.setMinimumHeight(120)
         plot.setBackground("w")
         plot.showGrid(x=True, y=True, alpha=0.3)
         curve = plot.plot(pen=pg.mkPen(color=(0, 120, 215), width=1))
-        group_layout.addWidget(plot)
+        splitter.addWidget(plot)
+
+        controls = QWidget()
+        controls_layout = QVBoxLayout()
+        controls_layout.setContentsMargins(0, 0, 0, 0)
 
         row = QHBoxLayout()
         enable_cb = QCheckBox("Enable")
@@ -318,7 +327,7 @@ class MainWindow(QMainWindow):
         delete_btn.clicked.connect(lambda _, i=slot_index: self._multi_delete_slot(i))
         row.addWidget(delete_btn)
         row.addStretch(1)
-        group_layout.addLayout(row)
+        controls_layout.addLayout(row)
 
         tx_row = QHBoxLayout()
         tx_row.addWidget(QLabel("TX Msg:"))
@@ -336,7 +345,7 @@ class MainWindow(QMainWindow):
         tx_apply_btn = QPushButton("Update")
         tx_apply_btn.clicked.connect(lambda _, i=slot_index: self._multi_apply_slot_tx(i))
         tx_row.addWidget(tx_apply_btn)
-        group_layout.addLayout(tx_row)
+        controls_layout.addLayout(tx_row)
 
         graph_row = QHBoxLayout()
         graph_row.addWidget(QLabel("Graph:"))
@@ -354,7 +363,7 @@ class MainWindow(QMainWindow):
             lambda i=slot_index: self._multi_graph_item_edit_finished(i)
         )
         graph_row.addWidget(graph_item_combo, 1)
-        group_layout.addLayout(graph_row)
+        controls_layout.addLayout(graph_row)
 
         signals_container = QWidget()
         signals_form = QFormLayout()
@@ -364,8 +373,13 @@ class MainWindow(QMainWindow):
         signals_scroll.setWidgetResizable(True)
         signals_scroll.setWidget(signals_container)
         signals_scroll.setMinimumHeight(160)
-        group_layout.addWidget(signals_scroll)
+        controls_layout.addWidget(signals_scroll)
 
+        controls.setLayout(controls_layout)
+        splitter.addWidget(controls)
+        splitter.setSizes([180, 360])
+
+        group_layout.addWidget(splitter)
         group.setLayout(group_layout)
 
         slot["_ui"] = {
@@ -686,7 +700,7 @@ class MainWindow(QMainWindow):
                 combo.addItems(items)
                 combo.setEnabled(bool(items))
 
-                completer = QCompleter(items)
+                completer = QCompleter(items, combo)
                 completer.setCaseSensitivity(Qt.CaseInsensitive)
                 completer.setFilterMode(Qt.MatchContains)
                 combo.setCompleter(completer)
@@ -706,7 +720,7 @@ class MainWindow(QMainWindow):
             self.multi_common_message_combo.addItem("")
             self.multi_common_message_combo.addItems(self._multi_message_names)
             self.multi_common_message_combo.setEnabled(bool(self._multi_message_names))
-            completer = QCompleter(self._multi_message_names)
+            completer = QCompleter(self._multi_message_names, self.multi_common_message_combo)
             completer.setCaseSensitivity(Qt.CaseInsensitive)
             completer.setFilterMode(Qt.MatchContains)
             self.multi_common_message_combo.setCompleter(completer)
