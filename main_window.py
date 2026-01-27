@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
         top.addStretch(1)
         layout.addLayout(top)
 
-        body = QHBoxLayout()
+        splitter = QSplitter(Qt.Horizontal)
 
         left = QVBoxLayout()
         left_top = QHBoxLayout()
@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
 
         left_widget = QWidget()
         left_widget.setLayout(left)
-        body.addWidget(left_widget, 2)
+        splitter.addWidget(left_widget)
 
         self.multi_stack = QStackedWidget()
         self.multi_browser = QWidget()
@@ -196,9 +196,10 @@ class MainWindow(QMainWindow):
         self._setup_multi_editor()
         self.multi_stack.addWidget(self.multi_browser)
         self.multi_stack.addWidget(self.multi_editor)
-        body.addWidget(self.multi_stack, 3)
+        splitter.addWidget(self.multi_stack)
 
-        layout.addLayout(body)
+        splitter.setSizes([420, 640])
+        layout.addWidget(splitter)
 
         self.add_multi_slot()
 
