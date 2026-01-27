@@ -585,6 +585,9 @@ def mouseMoved(window, evt):
 
 def handle_received_message(window, msg):
 
+    if getattr(window, "pause_can_updates", False):
+        return
+
     if window.db is None:
         print("[handle_received_message] DBC not loaded.")
         return

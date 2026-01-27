@@ -41,6 +41,7 @@ class MainWindow(QMainWindow):
         self.uses_adjusted_id = False
         self.graph_plot_items = {}  # 시그널별 PlotDataItem 객체 저장용
         self.graph_start_time = None  # 상대 시간 기준 (0부터 시작)
+        self.pause_can_updates = False
 
         self.initUI()
 
@@ -238,6 +239,7 @@ class MainWindow(QMainWindow):
             self, "Open Hex File", "", "Hex Files (*.hex)"
         )
         if hex_file_path:
+            self.pause_can_updates = True
             self.state_machine = StateMachine(self, hex_file_path)
             self.create_progress_dialog()
             self.state_machine.start_bootstrap()
@@ -248,6 +250,7 @@ class MainWindow(QMainWindow):
             self, "Open Hex File", "", "Hex Files (*.hex)"
         )
         if hex_file_path:
+            self.pause_can_updates = True
             self.state_machine = StateMachine(self, hex_file_path)
             self.create_progress_dialog()
             self.state_machine.start_normalboot()
@@ -290,6 +293,7 @@ class MainWindow(QMainWindow):
             if self.progress_thread:
                 self.progress_thread.stop()
             QMessageBox.information(self, "BootStrap Update", "Update Complete")
+        self.pause_can_updates = False
 
     def statemachine_completed(self):
         self.statemachine_timer.stop()
@@ -310,6 +314,7 @@ class MainWindow(QMainWindow):
             if self.progress_thread:
                 self.progress_thread.stop()
             QMessageBox.information(self, "BootStrap Update", "Update Canceled")
+        self.pause_can_updates = False
 
     # def wheelEvent(self, event):
     #     if hasattr(event, "angleDelta"):
