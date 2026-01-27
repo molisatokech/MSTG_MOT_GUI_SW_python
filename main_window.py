@@ -1,6 +1,7 @@
 import sys
 import can
 import os
+import json
 import main_window_logic as logic
 import pyqtgraph as pg
 import time
@@ -54,6 +55,8 @@ class MainWindow(QMainWindow):
 
         self.multi_slots = []
         self._multi_active_slot_index = None
+        self._multi_common_values = {}
+        self.multi_common_message_name = None
 
         self.initUI()
 
@@ -170,6 +173,14 @@ class MainWindow(QMainWindow):
         self.multi_load_dbc_button = QPushButton("Load DBC File")
         self.multi_load_dbc_button.clicked.connect(lambda: logic.load_dbc_file(self))
         top.addWidget(self.multi_load_dbc_button)
+
+        self.multi_save_template_button = QPushButton("Save Template")
+        self.multi_save_template_button.clicked.connect(self.save_multi_template)
+        top.addWidget(self.multi_save_template_button)
+
+        self.multi_load_template_button = QPushButton("Load Template")
+        self.multi_load_template_button.clicked.connect(self.load_multi_template)
+        top.addWidget(self.multi_load_template_button)
 
         top.addStretch(1)
         layout.addLayout(top)
@@ -634,7 +645,8 @@ class MainWindow(QMainWindow):
             return
 
         for sig in message.signals:
-            field = QLineEdit("0")
+            value = self._multi_common_values.get(sig.name, 0)
+            field = QLineEdit(str(value))
             self.multi_common_signals_form.addRow(sig.name, field)
             self._multi_common_signal_fields[sig.name] = field
 
@@ -663,6 +675,136 @@ class MainWindow(QMainWindow):
             return
 
         logic.send_common_message_to_ids(self, message_name, values, target_ids)
+
+    def _collect_common_signal_values(self) -> dict:
+        values = {}
+        for name, field in getattr(self, "_multi_common_signal_fields", {}).items():
+            text = field.text().strip()
+            if text == "":
+                continue
+            values[name] = float(text) if "." in text else int(text)
+        return values
+
+    def serialize_multi_template(self) -> dict:
+        common_message = getattr(self, "multi_common_message_name", None)
+        common_values = {}
+        if common_message:
+            try:
+                common_values = self._collect_common_signal_values()
+            except Exception:
+                common_values = {}
+
+        slots = []
+        for slot in self.multi_slots:
+            graph_item = None
+            if slot.get("graph_message_name") and slot.get("graph_signal"):
+                graph_item = f"{slot.get('graph_message_name')}.{slot.get('graph_signal')}"
+
+            slots.append(
+                {
+                    "enabled": bool(slot.get("enabled", True)),
+                    "id": int(slot.get("id", 1)),
+                    "tx_message_name": slot.get("tx_message_name"),
+                    "tx_applied_values": dict(slot.get("tx_applied_values") or {}),
+                    "graph_item": graph_item,
+                }
+            )
+
+        return {
+            "version": 1,
+            "period_ms": int(self.multi_period_ms.value()),
+            "common": {
+                "message_name": common_message,
+                "signal_values": common_values,
+            },
+            "slots": slots,
+        }
+
+    def apply_multi_template(self, template: dict):
+        if not isinstance(template, dict):
+            raise ValueError("Invalid template format")
+
+        period_ms = template.get("period_ms", 10)
+        self.multi_period_ms.setValue(int(period_ms))
+
+        common = template.get("common") or {}
+        self._multi_common_values = dict(common.get("signal_values") or {})
+        common_message = common.get("message_name")
+        if hasattr(self, "multi_common_message_combo"):
+            self.multi_common_message_combo.setCurrentText(common_message or "")
+        if common_message and self.db is not None:
+            self._multi_common_set_message(common_message)
+        else:
+            self.multi_common_message_name = common_message or None
+
+        slots = []
+        for raw in template.get("slots") or []:
+            graph_item = raw.get("graph_item") or ""
+            graph_message_name = None
+            graph_signal = None
+            if isinstance(graph_item, str) and "." in graph_item:
+                graph_message_name, graph_signal = graph_item.split(".", 1)
+
+            slots.append(
+                {
+                    "enabled": bool(raw.get("enabled", True)),
+                    "id": int(raw.get("id", 1)),
+                    "tx_message_name": raw.get("tx_message_name"),
+                    "tx_pending_values": {},
+                    "tx_applied_values": dict(raw.get("tx_applied_values") or {}),
+                    "tx_ready": False,
+                    "graph_message_name": graph_message_name,
+                    "graph_signal": graph_signal,
+                    "graph_cmd_id": None,
+                    "time": deque(maxlen=500),
+                    "values": deque(maxlen=500),
+                    "start": None,
+                }
+            )
+
+        self.multi_slots = slots[:8]
+        self._rebuild_multi_cards()
+
+        if self.db is not None:
+            for i, slot in enumerate(self.multi_slots):
+                if slot.get("graph_message_name") and slot.get("graph_signal"):
+                    self._multi_set_slot_graph_item(
+                        i, f"{slot['graph_message_name']}.{slot['graph_signal']}"
+                    )
+
+    def save_multi_template(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Multi Template",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            payload = self.serialize_multi_template()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logic.show_message(self, "Error", f"Failed to save template.\nError: {e}")
+
+    def load_multi_template(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Multi Template",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                template = json.load(f)
+            self.apply_multi_template(template)
+        except Exception as e:
+            logic.show_message(self, "Error", f"Failed to load template.\nError: {e}")
 
     def refresh_multi_message_list(self):
         self._multi_message_names = []
