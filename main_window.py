@@ -45,6 +45,18 @@ class MainWindow(QMainWindow):
 
         self.initUI()
 
+    def _set_control_mode_exclusive(self, source_checkbox, checked: bool):
+        if not checked:
+            return
+
+        other_checkboxes = [self.pos_checkbox, self.vel_checkbox, self.torq_checkbox]
+        for checkbox in other_checkboxes:
+            if checkbox is source_checkbox:
+                continue
+            checkbox.blockSignals(True)
+            checkbox.setChecked(False)
+            checkbox.blockSignals(False)
+
     def initUI(self):
         if getattr(sys, "frozen", False):
             application_path = sys._MEIPASS
@@ -232,6 +244,17 @@ class MainWindow(QMainWindow):
         self.vel_checkbox.stateChanged.connect(lambda: logic.control_mode_changed(self))
         self.torq_checkbox.stateChanged.connect(
             lambda: logic.control_mode_changed(self)
+        )
+
+        # Make control mode checkboxes mutually exclusive (only one can be checked).
+        self.pos_checkbox.toggled.connect(
+            lambda checked: self._set_control_mode_exclusive(self.pos_checkbox, checked)
+        )
+        self.vel_checkbox.toggled.connect(
+            lambda checked: self._set_control_mode_exclusive(self.vel_checkbox, checked)
+        )
+        self.torq_checkbox.toggled.connect(
+            lambda checked: self._set_control_mode_exclusive(self.torq_checkbox, checked)
         )
 
     def start_bootstrap_update(self):
