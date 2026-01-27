@@ -167,6 +167,10 @@ class MainWindow(QMainWindow):
         self.multi_add_slot_button.clicked.connect(self.add_multi_slot)
         top.addWidget(self.multi_add_slot_button)
 
+        self.multi_load_dbc_button = QPushButton("Load DBC File")
+        self.multi_load_dbc_button.clicked.connect(lambda: logic.load_dbc_file(self))
+        top.addWidget(self.multi_load_dbc_button)
+
         top.addStretch(1)
         layout.addLayout(top)
 

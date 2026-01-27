@@ -698,12 +698,19 @@ def handle_received_message(window, msg):
 
         message_name = message.name
         upper_5_bits_id = (can_id >> 6) & 0x1F
-        user_id = int(window.id_input.text()) & 0x1F
+        user_id = None
+        try:
+            user_id = int(window.id_input.text()) & 0x1F
+        except Exception:
+            user_id = None
 
         full_message_name = message.name
 
         if hasattr(window, "multi_graph_on_rx"):
             window.multi_graph_on_rx(can_id, decoded_data)
+
+        if user_id is None:
+            return
 
         if upper_5_bits_id == user_id:
             if full_message_name not in window.message_data_dicts[user_id]:
