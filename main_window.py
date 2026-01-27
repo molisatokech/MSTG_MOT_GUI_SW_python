@@ -57,8 +57,14 @@ class MainWindow(QMainWindow):
         self._multi_active_slot_index = None
         self._multi_common_values = {}
         self.multi_common_message_name = None
+        self.multi_auto_width_enabled = False
 
         self.initUI()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.multi_auto_width_enabled and getattr(self, "multi_cards_scroll", None):
+            self._apply_multi_auto_width()
 
     def _set_control_mode_exclusive(self, source_checkbox, checked: bool):
         if not checked:
@@ -182,6 +188,11 @@ class MainWindow(QMainWindow):
         self.multi_load_template_button.clicked.connect(self.load_multi_template)
         top.addWidget(self.multi_load_template_button)
 
+        self.multi_auto_width_button = QPushButton("Auto Width")
+        self.multi_auto_width_button.setCheckable(True)
+        self.multi_auto_width_button.toggled.connect(self._toggle_multi_auto_width)
+        top.addWidget(self.multi_auto_width_button)
+
         top.addStretch(1)
         layout.addLayout(top)
 
@@ -304,6 +315,8 @@ class MainWindow(QMainWindow):
         self.refresh_multi_message_list()
         if self.multi_graph_active:
             self.refresh_multi_graphs()
+        if self.multi_auto_width_enabled:
+            self._apply_multi_auto_width()
 
     def _create_multi_slot_card(self, slot_index: int, slot: dict):
         group = QGroupBox(f"Slot {slot_index + 1}")
@@ -415,6 +428,42 @@ class MainWindow(QMainWindow):
             )
 
         return group
+
+    def _toggle_multi_auto_width(self, checked: bool):
+        self.multi_auto_width_enabled = checked
+        if checked:
+            self._apply_multi_auto_width()
+        else:
+            for slot in self.multi_slots:
+                group = slot.get("_ui", {}).get("group")
+                if group is not None:
+                    group.setMinimumWidth(360)
+                    group.setMaximumWidth(16777215)
+
+    def _apply_multi_auto_width(self):
+        if not getattr(self, "multi_cards_scroll", None):
+            return
+        if not getattr(self, "multi_cards_layout", None):
+            return
+
+        slot_count = len(self.multi_slots)
+        if slot_count <= 0:
+            return
+
+        viewport_width = self.multi_cards_scroll.viewport().width()
+        left, top, right, bottom = self.multi_cards_layout.getContentsMargins()
+        spacing = self.multi_cards_layout.spacing()
+
+        usable = max(0, viewport_width - left - right - (spacing * max(0, slot_count - 1)))
+        card_width = int(usable / max(1, slot_count))
+        card_width = max(280, card_width)
+
+        for slot in self.multi_slots:
+            group = slot.get("_ui", {}).get("group")
+            if group is None:
+                continue
+            group.setMinimumWidth(card_width)
+            group.setMaximumWidth(card_width)
 
     def _multi_tx_message_edit_finished(self, slot_index: int):
         self._multi_validate_tx_message_combo(slot_index)
