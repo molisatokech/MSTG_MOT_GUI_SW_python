@@ -703,7 +703,7 @@ def handle_received_message(window, msg):
         full_message_name = message.name
 
         if hasattr(window, "multi_graph_on_rx"):
-            window.multi_graph_on_rx(upper_5_bits_id, full_message_name, decoded_data)
+            window.multi_graph_on_rx(can_id, decoded_data)
 
         if upper_5_bits_id == user_id:
             if full_message_name not in window.message_data_dicts[user_id]:

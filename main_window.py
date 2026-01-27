@@ -468,6 +468,7 @@ class MainWindow(QMainWindow):
         if text == "":
             slot["graph_message_name"] = None
             slot["graph_signal"] = None
+            slot["graph_cmd_id"] = None
             slot["time"].clear()
             slot["values"].clear()
             slot["start"] = None
@@ -483,6 +484,7 @@ class MainWindow(QMainWindow):
 
         slot["graph_message_name"] = msg_name
         slot["graph_signal"] = sig_name
+        slot["graph_cmd_id"] = message.frame_id & 0x3F
         slot["time"].clear()
         slot["values"].clear()
         slot["start"] = None
@@ -552,6 +554,7 @@ class MainWindow(QMainWindow):
             "tx_ready": False,
             "graph_message_name": None,
             "graph_signal": None,
+            "graph_cmd_id": None,
             "time": deque(maxlen=500),
             "values": deque(maxlen=500),
             "start": None,
@@ -784,11 +787,15 @@ class MainWindow(QMainWindow):
                 continue
             ui["curve"].setData(list(slot["time"]), list(slot["values"]))
 
-    def multi_graph_on_rx(self, node_id: int, message_name: str, decoded_data: dict):
+    def multi_graph_on_rx(self, can_id: int, decoded_data: dict):
+        node_id = (int(can_id) >> 6) & 0x1F
+        cmd_id = int(can_id) & 0x3F
         for slot in self.multi_slots:
-            if slot.get("graph_message_name") != message_name:
-                continue
             if int(slot.get("id", 0)) != int(node_id):
+                continue
+            if slot.get("graph_cmd_id") is None:
+                continue
+            if int(slot.get("graph_cmd_id")) != int(cmd_id):
                 continue
 
             signal_name = slot.get("graph_signal")
