@@ -109,11 +109,25 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self.on_tab_changed)
 
+        # Shared panel used by Single/BCU tabs (same UI, different behavior).
+        self.single_like_panel = QWidget()
+        single_like_layout = QVBoxLayout()
+        single_like_layout.setContentsMargins(0, 0, 0, 0)
+        self.single_like_panel.setLayout(single_like_layout)
+        self.setup_main_panel(single_like_layout)
+
         self.single_tab = QWidget()
-        single_layout = QVBoxLayout()
-        self.single_tab.setLayout(single_layout)
-        self.setup_main_panel(single_layout)
+        self.single_tab_layout = QVBoxLayout()
+        self.single_tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.single_tab.setLayout(self.single_tab_layout)
+        self.single_tab_layout.addWidget(self.single_like_panel)
         self.tabs.addTab(self.single_tab, "Single")
+
+        self.bcu_tab = QWidget()
+        self.bcu_tab_layout = QVBoxLayout()
+        self.bcu_tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.bcu_tab.setLayout(self.bcu_tab_layout)
+        self.tabs.addTab(self.bcu_tab, "BCU")
 
         self.multi_tab = QWidget()
         multi_layout = QVBoxLayout()
@@ -125,13 +139,44 @@ class MainWindow(QMainWindow):
 
     def on_tab_changed(self, index: int):
         label = self.tabs.tabText(index).lower()
-        self.active_tab = "multi" if "multi" in label else "single"
-        self.single_graph_active = self.active_tab == "single"
+        if "multi" in label:
+            self.active_tab = "multi"
+        elif "bcu" in label:
+            self.active_tab = "bcu"
+        else:
+            self.active_tab = "single"
+
+        self.single_graph_active = self.active_tab in ("single", "bcu")
         self.multi_graph_active = self.active_tab == "multi"
+
+        if self.active_tab in ("single", "bcu"):
+            self._move_single_like_panel_to_active_tab()
+            self._apply_single_like_mode_ui()
+
         if self.single_graph_active:
             logic.update_graph(self)
         if self.multi_graph_active:
             self.refresh_multi_graphs()
+
+    def _move_single_like_panel_to_active_tab(self):
+        if not hasattr(self, "single_like_panel"):
+            return
+        target_layout = (
+            self.single_tab_layout if self.active_tab == "single" else self.bcu_tab_layout
+        )
+        if self.single_like_panel.parent() is target_layout.parentWidget():
+            return
+
+        # Detach and reattach.
+        self.single_like_panel.setParent(None)
+        target_layout.addWidget(self.single_like_panel)
+
+    def _apply_single_like_mode_ui(self):
+        is_bcu = self.active_tab == "bcu"
+        if hasattr(self, "bootstrap_update_button"):
+            self.bootstrap_update_button.setVisible(not is_bcu)
+        if hasattr(self, "normal_fw_update_button"):
+            self.normal_fw_update_button.setVisible(not is_bcu)
 
     def setup_top_bar(self, layout):
         top_layout = QHBoxLayout()
@@ -1128,7 +1173,7 @@ class MainWindow(QMainWindow):
         graph_layout.addWidget(self.id_input)
 
         self.scan_button = QPushButton("Scan CAN Bus")
-        self.scan_button.clicked.connect(lambda: logic.scan_can_bus(self))
+        self.scan_button.clicked.connect(self._on_scan_can_bus_clicked)
         graph_layout.addWidget(self.scan_button)
 
         self.load_dbc_button = QPushButton("Load DBC File")
@@ -1203,6 +1248,12 @@ class MainWindow(QMainWindow):
 
     def handle_received_message(self, msg):
         logic.handle_received_message(self, msg)
+
+    def _on_scan_can_bus_clicked(self):
+        if getattr(self, "active_tab", "single") == "bcu":
+            logic.scan_can_bus_bcu(self)
+        else:
+            logic.scan_can_bus(self)
 
     def create_progress_dialog(self):
         self.progress_dialog = QProgressDialog(

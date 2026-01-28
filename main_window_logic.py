@@ -192,6 +192,60 @@ def finish_scan(window):
     show_message(window, "Detected CAN IDs", detected_ids_str)
 
 
+def scan_can_bus_bcu(window):
+    if window.bus is None:
+        show_message(window, "Error", "CAN bus is not connected.")
+        return
+    if window.db is None:
+        show_message(window, "Error", "DBC not loaded.")
+        return
+
+    try:
+        message = window.db.get_message_by_name("ID17_01_REPORT_EN")
+        data_dict = {signal.name: 0 for signal in message.signals}
+        data_dict["STATUS"] = 1
+        data = message.encode(data_dict)
+        frame_id = (17 << 6) | (message.frame_id & 0x3F)
+        msg = can.Message(arbitration_id=frame_id, data=data, is_extended_id=False)
+    except Exception as e:
+        show_message(window, "Error", f"Failed to build ID17_01_REPORT_EN.\nError: {e}")
+        return
+
+    window.can_receiver.start_scan()
+
+    try:
+        window.bus.send(msg)
+        if getattr(window, "debug_output", False):
+            print(f"[BCU][SCAN] REPORT_EN STATUS=1 sent: {hex(frame_id)}")
+    except Exception as e:
+        show_message(window, "Error", f"Failed to send REPORT_EN enable.\nError: {e}")
+        return
+
+    QTimer.singleShot(1000, lambda: finish_scan_bcu(window))
+
+
+def finish_scan_bcu(window):
+    detected_ids = window.can_receiver.stop_scan()
+    detected_ids_str = "\n".join(f"ID: {did}" for did in detected_ids)
+    show_message(window, "Detected CAN IDs", detected_ids_str)
+
+    if window.bus is None or window.db is None:
+        return
+
+    try:
+        message = window.db.get_message_by_name("ID17_01_REPORT_EN")
+        data_dict = {signal.name: 0 for signal in message.signals}
+        data_dict["STATUS"] = 0
+        data = message.encode(data_dict)
+        frame_id = (17 << 6) | (message.frame_id & 0x3F)
+        msg = can.Message(arbitration_id=frame_id, data=data, is_extended_id=False)
+        window.bus.send(msg)
+        if getattr(window, "debug_output", False):
+            print(f"[BCU][SCAN] REPORT_EN STATUS=0 sent: {hex(frame_id)}")
+    except Exception as e:
+        print(f"[BCU][SCAN] Failed to send REPORT_EN disable: {e}")
+
+
 def update_message(window):
     if window.bus is None:
         show_message(window, "Error", "CAN bus is not connected.")
