@@ -118,6 +118,8 @@ def load_dbc_file(window):
             update_message_list(window)
             update_graph_data_combo(window)
             detect_dbc_structure(window)
+            if hasattr(window, "refresh_multi_message_list"):
+                window.refresh_multi_message_list()
             show_message(
                 window, "DBC File Loaded", f"DBC file {file_name} loaded successfully."
             )
@@ -188,6 +190,60 @@ def finish_scan(window):
     detected_ids = window.can_receiver.stop_scan()
     detected_ids_str = "\n".join(f"ID: {did}" for did in detected_ids)
     show_message(window, "Detected CAN IDs", detected_ids_str)
+
+
+def scan_can_bus_bcu(window):
+    if window.bus is None:
+        show_message(window, "Error", "CAN bus is not connected.")
+        return
+    if window.db is None:
+        show_message(window, "Error", "DBC not loaded.")
+        return
+
+    try:
+        message = window.db.get_message_by_name("ID17_01_REPORT_EN")
+        data_dict = {signal.name: 0 for signal in message.signals}
+        data_dict["STATUS"] = 1
+        data = message.encode(data_dict)
+        frame_id = (17 << 6) | (message.frame_id & 0x3F)
+        msg = can.Message(arbitration_id=frame_id, data=data, is_extended_id=False)
+    except Exception as e:
+        show_message(window, "Error", f"Failed to build ID17_01_REPORT_EN.\nError: {e}")
+        return
+
+    window.can_receiver.start_scan()
+
+    try:
+        window.bus.send(msg)
+        if getattr(window, "debug_output", False):
+            print(f"[BCU][SCAN] REPORT_EN STATUS=1 sent: {hex(frame_id)}")
+    except Exception as e:
+        show_message(window, "Error", f"Failed to send REPORT_EN enable.\nError: {e}")
+        return
+
+    QTimer.singleShot(1000, lambda: finish_scan_bcu(window))
+
+
+def finish_scan_bcu(window):
+    detected_ids = window.can_receiver.stop_scan()
+    detected_ids_str = "\n".join(f"ID: {did}" for did in detected_ids)
+    show_message(window, "Detected CAN IDs", detected_ids_str)
+
+    if window.bus is None or window.db is None:
+        return
+
+    try:
+        message = window.db.get_message_by_name("ID17_01_REPORT_EN")
+        data_dict = {signal.name: 0 for signal in message.signals}
+        data_dict["STATUS"] = 0
+        data = message.encode(data_dict)
+        frame_id = (17 << 6) | (message.frame_id & 0x3F)
+        msg = can.Message(arbitration_id=frame_id, data=data, is_extended_id=False)
+        window.bus.send(msg)
+        if getattr(window, "debug_output", False):
+            print(f"[BCU][SCAN] REPORT_EN STATUS=0 sent: {hex(frame_id)}")
+    except Exception as e:
+        print(f"[BCU][SCAN] Failed to send REPORT_EN disable: {e}")
 
 
 def update_message(window):
@@ -341,6 +397,81 @@ def send_messages_containing(window, keyword):
                 send_message(window, message_name)
 
 
+def send_multi_messages(window):
+    if window.bus is None or window.db is None:
+        return
+    if not hasattr(window, "multi_slots"):
+        return
+
+    for slot in window.multi_slots:
+        if not slot.get("enabled", False):
+            continue
+        if not slot.get("tx_ready", False):
+            continue
+
+        message_name = slot.get("tx_message_name")
+        if not message_name:
+            continue
+
+        slot_id = int(slot.get("id", 0)) & 0x1F
+        message = window.db.get_message_by_name(message_name)
+        if not message:
+            continue
+
+        message_data = {sig.name: 0 for sig in message.signals}
+        message_data.update(slot.get("tx_applied_values") or {})
+        try:
+            raw_payload = _build_raw_payload(message, message_data)
+            encoded_data = message.encode(raw_payload, scaling=False)
+            frame_id = (slot_id << 6) | (message.frame_id & 0x3F)
+            msg = can.Message(
+                arbitration_id=frame_id, data=encoded_data, is_extended_id=False
+            )
+            window.bus.send(msg)
+            if getattr(window, "debug_output", False):
+                hex_payload = " ".join(f"{byte:02X}" for byte in msg.data)
+                print(
+                    f"[TX][MULTI] id={slot_id} {message.name} (0x{frame_id:03X}) :: {hex_payload} | raw={raw_payload}"
+                )
+        except (ValueError, KeyError, cantools.database.errors.EncodeError) as e:
+            print(f"[TX][MULTI] Failed to send {message_name}: {e}")
+
+
+def send_common_message_to_ids(window, message_name: str, signal_values: dict, target_ids):
+    if window.bus is None or window.db is None:
+        return
+    if not message_name:
+        return
+
+    message = window.db.get_message_by_name(message_name)
+    if not message:
+        return
+
+    message_data = {sig.name: 0 for sig in message.signals}
+    message_data.update(signal_values or {})
+
+    try:
+        raw_payload = _build_raw_payload(message, message_data)
+        encoded_data = message.encode(raw_payload, scaling=False)
+    except (ValueError, KeyError, cantools.database.errors.EncodeError) as e:
+        print(f"[TX][COMMON] Failed to encode {message_name}: {e}")
+        return
+
+    for target_id in target_ids:
+        slot_id = int(target_id) & 0x1F
+        frame_id = (slot_id << 6) | (message.frame_id & 0x3F)
+        msg = can.Message(arbitration_id=frame_id, data=encoded_data, is_extended_id=False)
+        try:
+            window.bus.send(msg)
+            if getattr(window, "debug_output", False):
+                hex_payload = " ".join(f"{byte:02X}" for byte in msg.data)
+                print(
+                    f"[TX][COMMON] id={slot_id} {message.name} (0x{frame_id:03X}) :: {hex_payload} | raw={raw_payload}"
+                )
+        except Exception as e:
+            print(f"[TX][COMMON] Failed to send id={slot_id} {message_name}: {e}")
+
+
 def update_data_display(window):
     user_id = int(window.id_input.text()) & 0x1F
     if window.current_message_name in window.message_data_dicts[user_id]:
@@ -431,6 +562,9 @@ def update_graph_data_combo(window):
 
 
 def update_graph(window):
+    if not getattr(window, "single_graph_active", True):
+        return
+
     selected = window.graph_data_combo.currentText()
     selected2 = window.graph_data_combo2.currentText()
 
@@ -585,6 +719,9 @@ def mouseMoved(window, evt):
 
 def handle_received_message(window, msg):
 
+    if getattr(window, "pause_can_updates", False):
+        return
+
     if window.db is None:
         print("[handle_received_message] DBC not loaded.")
         return
@@ -615,9 +752,19 @@ def handle_received_message(window, msg):
 
         message_name = message.name
         upper_5_bits_id = (can_id >> 6) & 0x1F
-        user_id = int(window.id_input.text()) & 0x1F
+        user_id = None
+        try:
+            user_id = int(window.id_input.text()) & 0x1F
+        except Exception:
+            user_id = None
 
         full_message_name = message.name
+
+        if hasattr(window, "multi_graph_on_rx"):
+            window.multi_graph_on_rx(can_id, decoded_data)
+
+        if user_id is None:
+            return
 
         if upper_5_bits_id == user_id:
             if full_message_name not in window.message_data_dicts[user_id]:

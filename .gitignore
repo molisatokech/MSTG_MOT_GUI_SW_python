@@ -13,8 +13,7 @@ build/
 *.spec
 *.egg-info/
 
-dist/*.exe
-dist/*.zip
+dist/
 
 # Logs & runtime artifacts
 *.log

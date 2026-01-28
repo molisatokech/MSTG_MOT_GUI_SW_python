@@ -1,13 +1,19 @@
 import sys
 import can
 import os
+import json
 import main_window_logic as logic
 import pyqtgraph as pg
+import time
+from collections import deque
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QLabel
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout
 from PyQt5.QtWidgets import QGridLayout, QScrollArea, QComboBox, QCheckBox
 from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QGroupBox, QWidget
 from PyQt5.QtWidgets import QProgressDialog, QProgressBar, QSplitter
+from PyQt5.QtWidgets import QTabWidget, QSizePolicy, QCompleter
+from PyQt5.QtWidgets import QFormLayout
+from PyQt5.QtWidgets import QSpinBox
 from PyQt5.QtCore import QTimer, Qt
 from can_receiver import CANReceiver
 from main_window_logic import handle_received_message
@@ -41,8 +47,36 @@ class MainWindow(QMainWindow):
         self.uses_adjusted_id = False
         self.graph_plot_items = {}  # 시그널별 PlotDataItem 객체 저장용
         self.graph_start_time = None  # 상대 시간 기준 (0부터 시작)
+        self.pause_can_updates = False
+
+        self.active_tab = "single"
+        self.single_graph_active = True
+        self.multi_graph_active = False
+
+        self.multi_slots = []
+        self._multi_active_slot_index = None
+        self._multi_common_values = {}
+        self.multi_common_message_name = None
+        self.multi_auto_width_enabled = False
 
         self.initUI()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.multi_auto_width_enabled and getattr(self, "multi_cards_scroll", None):
+            self._apply_multi_auto_width()
+
+    def _set_control_mode_exclusive(self, source_checkbox, checked: bool):
+        if not checked:
+            return
+
+        other_checkboxes = [self.pos_checkbox, self.vel_checkbox, self.torq_checkbox]
+        for checkbox in other_checkboxes:
+            if checkbox is source_checkbox:
+                continue
+            checkbox.blockSignals(True)
+            checkbox.setChecked(False)
+            checkbox.blockSignals(False)
 
     def initUI(self):
         if getattr(sys, "frozen", False):
@@ -58,15 +92,106 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout()
 
         self.setup_top_bar(main_layout)
-        self.setup_main_panel(main_layout)
+        self.setup_tabs(main_layout)
         self.setCentralWidget(central_widget)
         central_widget.setLayout(main_layout)
 
         self.send_timer = QTimer()
         self.send_timer.timeout.connect(lambda: logic.send_messages(self))
 
+        self.multi_send_timer = QTimer()
+        self.multi_send_timer.timeout.connect(lambda: logic.send_multi_messages(self))
+
         self.statemachine_timer = QTimer()
         self.statemachine_timer.timeout.connect(self.run_next_state)
+
+    def setup_tabs(self, layout):
+        self.tabs = QTabWidget()
+        self.tabs.currentChanged.connect(self.on_tab_changed)
+
+        # Shared panel used by Single/BCU tabs (same UI, different behavior).
+        self.single_like_panel = QWidget()
+        single_like_layout = QVBoxLayout()
+        single_like_layout.setContentsMargins(0, 0, 0, 0)
+        self.single_like_panel.setLayout(single_like_layout)
+        self.setup_main_panel(single_like_layout)
+
+        self.single_tab = QWidget()
+        self.single_tab_layout = QVBoxLayout()
+        self.single_tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.single_tab.setLayout(self.single_tab_layout)
+        self.single_tab_layout.addWidget(self.single_like_panel)
+        self.tabs.addTab(self.single_tab, "Single")
+
+        self.multi_tab = QWidget()
+        multi_layout = QVBoxLayout()
+        self.multi_tab.setLayout(multi_layout)
+        self.setup_multi_panel(multi_layout)
+        self.tabs.addTab(self.multi_tab, "Multi")
+
+        self.bcu_tab = QWidget()
+        self.bcu_tab_layout = QVBoxLayout()
+        self.bcu_tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.bcu_tab.setLayout(self.bcu_tab_layout)
+        self.tabs.addTab(self.bcu_tab, "BCU")
+
+        layout.addWidget(self.tabs)
+
+    def on_tab_changed(self, index: int):
+        label = self.tabs.tabText(index).lower()
+        if "multi" in label:
+            self.active_tab = "multi"
+        elif "bcu" in label:
+            self.active_tab = "bcu"
+        else:
+            self.active_tab = "single"
+
+        self.single_graph_active = self.active_tab in ("single", "bcu")
+        self.multi_graph_active = self.active_tab == "multi"
+
+        if self.active_tab in ("single", "bcu"):
+            self._move_single_like_panel_to_active_tab()
+            self._apply_single_like_mode_ui()
+
+        if self.single_graph_active:
+            logic.update_graph(self)
+        if self.multi_graph_active:
+            self.refresh_multi_graphs()
+
+    def _move_single_like_panel_to_active_tab(self):
+        if not hasattr(self, "single_like_panel"):
+            return
+        target_layout = (
+            self.single_tab_layout if self.active_tab == "single" else self.bcu_tab_layout
+        )
+        if self.single_like_panel.parent() is target_layout.parentWidget():
+            return
+
+        # Detach and reattach.
+        self.single_like_panel.setParent(None)
+        target_layout.addWidget(self.single_like_panel)
+
+    def _apply_single_like_mode_ui(self):
+        is_bcu = self.active_tab == "bcu"
+        if hasattr(self, "bootstrap_update_button"):
+            self.bootstrap_update_button.setVisible(not is_bcu)
+        if hasattr(self, "normal_fw_update_button"):
+            self.normal_fw_update_button.setVisible(not is_bcu)
+        if hasattr(self, "pos_checkbox"):
+            self.pos_checkbox.setVisible(not is_bcu)
+        if hasattr(self, "vel_checkbox"):
+            self.vel_checkbox.setVisible(not is_bcu)
+        if hasattr(self, "torq_checkbox"):
+            self.torq_checkbox.setVisible(not is_bcu)
+
+        if is_bcu and hasattr(self, "send_timer"):
+            self.send_timer.stop()
+            for checkbox in (getattr(self, "pos_checkbox", None), getattr(self, "vel_checkbox", None), getattr(self, "torq_checkbox", None)):
+                if checkbox is None:
+                    continue
+                checkbox.blockSignals(True)
+                checkbox.setChecked(False)
+                checkbox.blockSignals(False)
 
     def setup_top_bar(self, layout):
         top_layout = QHBoxLayout()
@@ -91,6 +216,872 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.disconnect_button)
 
         layout.addLayout(top_layout)
+
+    def setup_multi_panel(self, layout):
+        top = QHBoxLayout()
+
+        top.addWidget(QLabel("Period (ms):"))
+        self.multi_period_ms = QSpinBox()
+        self.multi_period_ms.setRange(1, 1000)
+        self.multi_period_ms.setValue(10)
+        self.multi_period_ms.valueChanged.connect(self._on_multi_period_changed)
+        top.addWidget(self.multi_period_ms)
+
+        self.multi_start_button = QPushButton("Start")
+        self.multi_start_button.setCheckable(True)
+        self.multi_start_button.toggled.connect(self._toggle_multi_sending)
+        top.addWidget(self.multi_start_button)
+
+        self.multi_add_slot_button = QPushButton("+ Add Slot")
+        self.multi_add_slot_button.clicked.connect(self.add_multi_slot)
+        top.addWidget(self.multi_add_slot_button)
+
+        self.multi_load_dbc_button = QPushButton("Load DBC File")
+        self.multi_load_dbc_button.clicked.connect(lambda: logic.load_dbc_file(self))
+        top.addWidget(self.multi_load_dbc_button)
+
+        self.multi_save_template_button = QPushButton("Save Template")
+        self.multi_save_template_button.clicked.connect(self.save_multi_template)
+        top.addWidget(self.multi_save_template_button)
+
+        self.multi_load_template_button = QPushButton("Load Template")
+        self.multi_load_template_button.clicked.connect(self.load_multi_template)
+        top.addWidget(self.multi_load_template_button)
+
+        self.multi_auto_width_button = QPushButton("Auto Width")
+        self.multi_auto_width_button.setCheckable(True)
+        self.multi_auto_width_button.toggled.connect(self._toggle_multi_auto_width)
+        top.addWidget(self.multi_auto_width_button)
+
+        top.addStretch(1)
+        layout.addLayout(top)
+
+        self.multi_common_group = QGroupBox("Common (send once to all slot IDs)")
+        common_layout = QVBoxLayout()
+        common_row = QHBoxLayout()
+        common_row.addWidget(QLabel("Message:"))
+        self.multi_common_message_combo = QComboBox()
+        self.multi_common_message_combo.setEditable(True)
+        self.multi_common_message_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.multi_common_message_combo.activated[str].connect(
+            lambda text: self._multi_common_set_message(text)
+        )
+        self.multi_common_message_combo.lineEdit().editingFinished.connect(
+            self._multi_common_message_edit_finished
+        )
+        common_row.addWidget(self.multi_common_message_combo, 1)
+
+        self.multi_common_send_button = QPushButton("Send")
+        self.multi_common_send_button.clicked.connect(self._multi_common_send)
+        common_row.addWidget(self.multi_common_send_button)
+        common_layout.addLayout(common_row)
+
+        self.multi_common_signals_container = QWidget()
+        self.multi_common_signals_form = QFormLayout()
+        self.multi_common_signals_container.setLayout(self.multi_common_signals_form)
+        self.multi_common_signals_scroll = QScrollArea()
+        self.multi_common_signals_scroll.setWidgetResizable(True)
+        self.multi_common_signals_scroll.setWidget(self.multi_common_signals_container)
+        self.multi_common_signals_scroll.setMinimumHeight(120)
+        common_layout.addWidget(self.multi_common_signals_scroll)
+
+        self.multi_common_group.setLayout(common_layout)
+
+        self.multi_cards_container = QWidget()
+        self.multi_cards_layout = QHBoxLayout()
+        self.multi_cards_layout.setContentsMargins(0, 0, 0, 0)
+        self.multi_cards_layout.setSpacing(10)
+        self.multi_cards_container.setLayout(self.multi_cards_layout)
+
+        self.multi_cards_scroll = QScrollArea()
+        self.multi_cards_scroll.setWidgetResizable(True)
+        self.multi_cards_scroll.setWidget(self.multi_cards_container)
+        self.multi_cards_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.multi_cards_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.multi_vertical_splitter = QSplitter(Qt.Vertical)
+        self.multi_vertical_splitter.addWidget(self.multi_common_group)
+        self.multi_vertical_splitter.addWidget(self.multi_cards_scroll)
+        self.multi_vertical_splitter.setSizes([220, 600])
+        layout.addWidget(self.multi_vertical_splitter)
+
+        self._multi_message_names = []
+        self._multi_message_name_set = set()
+
+        self.add_multi_slot()
+
+    def _setup_multi_browser(self):
+        layout = QVBoxLayout()
+        search_row = QHBoxLayout()
+        search_row.addWidget(QLabel("Search:"))
+        self.multi_search = QLineEdit()
+        self.multi_search.textChanged.connect(self.refresh_multi_message_list)
+        search_row.addWidget(self.multi_search)
+        layout.addLayout(search_row)
+
+        self.multi_message_list = QListWidget()
+        self.multi_message_list.itemClicked.connect(self._on_multi_message_chosen)
+        layout.addWidget(self.multi_message_list)
+        self.multi_browser.setLayout(layout)
+
+    def _setup_multi_editor(self):
+        layout = QVBoxLayout()
+        header = QHBoxLayout()
+        self.multi_back_button = QPushButton("← Back")
+        self.multi_back_button.clicked.connect(
+            lambda: self.multi_stack.setCurrentWidget(self.multi_browser)
+        )
+        header.addWidget(self.multi_back_button)
+        self.multi_editor_title = QLabel("Message")
+        header.addWidget(self.multi_editor_title)
+        header.addStretch(1)
+        layout.addLayout(header)
+
+        self.multi_editor_form_container = QWidget()
+        self.multi_editor_form_layout = QFormLayout()
+        self.multi_editor_form_container.setLayout(self.multi_editor_form_layout)
+        self.multi_editor_scroll = QScrollArea()
+        self.multi_editor_scroll.setWidgetResizable(True)
+        self.multi_editor_scroll.setWidget(self.multi_editor_form_container)
+        layout.addWidget(self.multi_editor_scroll)
+
+        self.multi_editor.setLayout(layout)
+
+    def _on_multi_period_changed(self, value: int):
+        self.multi_send_timer.setInterval(value)
+
+    def _toggle_multi_sending(self, checked: bool):
+        if checked:
+            self.multi_start_button.setText("Stop")
+            self.multi_send_timer.start(self.multi_period_ms.value())
+        else:
+            self.multi_start_button.setText("Start")
+            self.multi_send_timer.stop()
+
+    def _rebuild_multi_cards(self):
+        while self.multi_cards_layout.count():
+            item = self.multi_cards_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        for idx, slot in enumerate(self.multi_slots):
+            card = self._create_multi_slot_card(idx, slot)
+            self.multi_cards_layout.addWidget(card)
+
+        self.multi_cards_layout.addStretch(1)
+        self.multi_add_slot_button.setEnabled(len(self.multi_slots) < 8)
+
+        self.refresh_multi_message_list()
+        if self.multi_graph_active:
+            self.refresh_multi_graphs()
+        if self.multi_auto_width_enabled:
+            self._apply_multi_auto_width()
+
+    def _create_multi_slot_card(self, slot_index: int, slot: dict):
+        group = QGroupBox(f"Slot {slot_index + 1}")
+        group.setMinimumWidth(360)
+        group_layout = QVBoxLayout()
+
+        splitter = QSplitter(Qt.Vertical)
+
+        plot = pg.PlotWidget()
+        plot.setMinimumHeight(120)
+        plot.setBackground("w")
+        plot.showGrid(x=True, y=True, alpha=0.3)
+        curve = plot.plot(pen=pg.mkPen(color=(0, 120, 215), width=1))
+        splitter.addWidget(plot)
+
+        controls = QWidget()
+        controls_layout = QVBoxLayout()
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+
+        row = QHBoxLayout()
+        enable_cb = QCheckBox("Enable")
+        enable_cb.setChecked(bool(slot.get("enabled", True)))
+        enable_cb.toggled.connect(
+            lambda checked, i=slot_index: self._multi_set_slot_enabled(i, checked)
+        )
+        row.addWidget(enable_cb)
+
+        row.addWidget(QLabel("ID:"))
+        id_spin = QSpinBox()
+        id_spin.setRange(1, 31)
+        id_spin.setValue(int(slot.get("id", 1)))
+        id_spin.valueChanged.connect(lambda v, i=slot_index: self._multi_set_slot_id(i, v))
+        row.addWidget(id_spin)
+
+        delete_btn = QPushButton("-")
+        delete_btn.clicked.connect(lambda _, i=slot_index: self._multi_delete_slot(i))
+        row.addWidget(delete_btn)
+        row.addStretch(1)
+        controls_layout.addLayout(row)
+
+        tx_row = QHBoxLayout()
+        tx_row.addWidget(QLabel("TX Msg:"))
+        tx_message_combo = QComboBox()
+        tx_message_combo.setEditable(True)
+        tx_message_combo.setInsertPolicy(QComboBox.NoInsert)
+        tx_message_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        tx_message_combo.activated[str].connect(
+            lambda text, i=slot_index: self._multi_set_slot_tx_message(i, text)
+        )
+        tx_message_combo.lineEdit().editingFinished.connect(
+            lambda i=slot_index: self._multi_tx_message_edit_finished(i)
+        )
+        tx_row.addWidget(tx_message_combo, 1)
+        tx_apply_btn = QPushButton("Update")
+        tx_apply_btn.clicked.connect(lambda _, i=slot_index: self._multi_apply_slot_tx(i))
+        tx_row.addWidget(tx_apply_btn)
+        controls_layout.addLayout(tx_row)
+
+        graph_row = QHBoxLayout()
+        graph_row.addWidget(QLabel("Graph:"))
+        graph_item_combo = QComboBox()
+        graph_item_combo.setEditable(True)
+        graph_item_combo.setInsertPolicy(QComboBox.NoInsert)
+        graph_item_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        graph_item_combo.activated[str].connect(
+            lambda text, i=slot_index: self._multi_set_slot_graph_item(i, text)
+        )
+        graph_item_combo.currentTextChanged.connect(
+            lambda text, i=slot_index: self._multi_graph_item_text_changed(i, text)
+        )
+        graph_item_combo.lineEdit().editingFinished.connect(
+            lambda i=slot_index: self._multi_graph_item_edit_finished(i)
+        )
+        graph_row.addWidget(graph_item_combo, 1)
+        controls_layout.addLayout(graph_row)
+
+        signals_container = QWidget()
+        signals_form = QFormLayout()
+        signals_container.setLayout(signals_form)
+
+        signals_scroll = QScrollArea()
+        signals_scroll.setWidgetResizable(True)
+        signals_scroll.setWidget(signals_container)
+        signals_scroll.setMinimumHeight(160)
+        controls_layout.addWidget(signals_scroll)
+
+        controls.setLayout(controls_layout)
+        splitter.addWidget(controls)
+        splitter.setSizes([180, 360])
+
+        group_layout.addWidget(splitter)
+        group.setLayout(group_layout)
+
+        slot["_ui"] = {
+            "group": group,
+            "curve": curve,
+            "tx_message_combo": tx_message_combo,
+            "tx_apply_btn": tx_apply_btn,
+            "graph_item_combo": graph_item_combo,
+            "signals_form": signals_form,
+            "signal_fields": {},
+        }
+
+        if self.db is not None and slot.get("tx_message_name"):
+            self._multi_rebuild_slot_tx_ui(slot_index)
+        if self.db is not None and slot.get("graph_message_name") and slot.get("graph_signal"):
+            graph_item_combo.setCurrentText(
+                f"{slot.get('graph_message_name')}.{slot.get('graph_signal')}"
+            )
+
+        return group
+
+    def _toggle_multi_auto_width(self, checked: bool):
+        self.multi_auto_width_enabled = checked
+        if checked:
+            self._apply_multi_auto_width()
+        else:
+            for slot in self.multi_slots:
+                group = slot.get("_ui", {}).get("group")
+                if group is not None:
+                    group.setMinimumWidth(360)
+                    group.setMaximumWidth(16777215)
+
+    def _apply_multi_auto_width(self):
+        if not getattr(self, "multi_cards_scroll", None):
+            return
+        if not getattr(self, "multi_cards_layout", None):
+            return
+
+        slot_count = len(self.multi_slots)
+        if slot_count <= 0:
+            return
+
+        viewport_width = self.multi_cards_scroll.viewport().width()
+        left, top, right, bottom = self.multi_cards_layout.getContentsMargins()
+        spacing = self.multi_cards_layout.spacing()
+
+        usable = max(0, viewport_width - left - right - (spacing * max(0, slot_count - 1)))
+        card_width = int(usable / max(1, slot_count))
+        card_width = max(280, card_width)
+
+        for slot in self.multi_slots:
+            group = slot.get("_ui", {}).get("group")
+            if group is None:
+                continue
+            group.setMinimumWidth(card_width)
+            group.setMaximumWidth(card_width)
+
+    def _multi_tx_message_edit_finished(self, slot_index: int):
+        self._multi_validate_tx_message_combo(slot_index)
+
+    def _multi_validate_tx_message_combo(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        ui = slot.get("_ui", {})
+        combo = ui.get("tx_message_combo")
+        if combo is None:
+            return
+
+        text = combo.currentText().strip()
+        if text == "":
+            self._multi_set_slot_tx_message(slot_index, "")
+            return
+
+        if text in self._multi_message_name_set:
+            self._multi_set_slot_tx_message(slot_index, text)
+            return
+
+        prev = slot.get("tx_message_name")
+        combo.blockSignals(True)
+        combo.setCurrentText(prev or "")
+        combo.blockSignals(False)
+
+    def _multi_set_slot_tx_message(self, slot_index: int, message_name: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        name = (message_name or "").strip()
+        if name == "":
+            slot["tx_message_name"] = None
+        elif name in self._multi_message_name_set:
+            slot["tx_message_name"] = name
+        else:
+            return
+        slot["tx_pending_values"] = {}
+        slot["tx_applied_values"] = {}
+        slot["tx_ready"] = False
+        self._multi_rebuild_slot_tx_ui(slot_index)
+
+    def _multi_graph_item_edit_finished(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        combo = self.multi_slots[slot_index].get("_ui", {}).get("graph_item_combo")
+        if combo is None:
+            return
+
+        text = combo.currentText().strip()
+        if text == "":
+            self._multi_set_slot_graph_item(slot_index, "")
+            return
+        if text in getattr(self, "_multi_graph_items_set", set()):
+            self._multi_set_slot_graph_item(slot_index, text)
+            return
+
+        prev_msg = self.multi_slots[slot_index].get("graph_message_name")
+        prev_sig = self.multi_slots[slot_index].get("graph_signal")
+        combo.blockSignals(True)
+        combo.setCurrentText(f"{prev_msg}.{prev_sig}" if prev_msg and prev_sig else "")
+        combo.blockSignals(False)
+
+    def _multi_graph_item_text_changed(self, slot_index: int, text: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        value = (text or "").strip()
+        if value == "":
+            self._multi_set_slot_graph_item(slot_index, "")
+            return
+        if value in getattr(self, "_multi_graph_items_set", set()):
+            self._multi_set_slot_graph_item(slot_index, value)
+
+    def _multi_set_slot_graph_item(self, slot_index: int, item: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        text = (item or "").strip()
+        if text == "":
+            slot["graph_message_name"] = None
+            slot["graph_signal"] = None
+            slot["graph_cmd_id"] = None
+            slot["time"].clear()
+            slot["values"].clear()
+            slot["start"] = None
+            return
+        if "." not in text:
+            return
+        msg_name, sig_name = text.split(".", 1)
+        if msg_name not in self._multi_message_name_set or self.db is None:
+            return
+        message = self.db.get_message_by_name(msg_name)
+        if not message or sig_name not in [s.name for s in message.signals]:
+            return
+
+        slot["graph_message_name"] = msg_name
+        slot["graph_signal"] = sig_name
+        slot["graph_cmd_id"] = message.frame_id & 0x3F
+        slot["time"].clear()
+        slot["values"].clear()
+        slot["start"] = None
+
+    def _multi_rebuild_slot_tx_ui(self, slot_index: int):
+        slot = self.multi_slots[slot_index]
+        ui = slot.get("_ui", {})
+        signals_form = ui.get("signals_form")
+        if signals_form is None:
+            return
+
+        while signals_form.rowCount():
+            signals_form.removeRow(0)
+        ui["signal_fields"] = {}
+
+        name = slot.get("tx_message_name")
+        if self.db is None or not name:
+            return
+
+        message = self.db.get_message_by_name(name)
+        if not message:
+            return
+
+        pending = slot.get("tx_pending_values", {})
+        applied = slot.get("tx_applied_values", {})
+        for sig in message.signals:
+            if sig.name not in pending:
+                pending[sig.name] = applied.get(sig.name, 0)
+            field = QLineEdit(str(pending.get(sig.name, 0)))
+            signals_form.addRow(sig.name, field)
+            ui["signal_fields"][sig.name] = field
+
+    def _multi_apply_slot_tx(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        ui = slot.get("_ui", {})
+        fields = ui.get("signal_fields", {})
+        if not fields:
+            return
+
+        new_values = {}
+        for name, field in fields.items():
+            text = field.text().strip()
+            if text == "":
+                continue
+            try:
+                new_values[name] = float(text) if "." in text else int(text)
+            except ValueError:
+                logic.show_message(self, "Error", f"Invalid value: {name} = '{text}'")
+                return
+
+        slot["tx_applied_values"] = {**slot.get("tx_applied_values", {}), **new_values}
+        slot["tx_pending_values"] = {**slot.get("tx_pending_values", {}), **new_values}
+        slot["tx_ready"] = True
+
+    def add_multi_slot(self):
+        if len(self.multi_slots) >= 8:
+            return
+
+        slot = {
+            "enabled": True,
+            "id": 1,
+            "tx_message_name": None,
+            "tx_pending_values": {},
+            "tx_applied_values": {},
+            "tx_ready": False,
+            "graph_message_name": None,
+            "graph_signal": None,
+            "graph_cmd_id": None,
+            "time": deque(maxlen=500),
+            "values": deque(maxlen=500),
+            "start": None,
+        }
+        self.multi_slots.append(slot)
+        self._rebuild_multi_cards()
+
+    def _multi_set_slot_enabled(self, slot_index: int, enabled: bool):
+        if 0 <= slot_index < len(self.multi_slots):
+            self.multi_slots[slot_index]["enabled"] = enabled
+
+    def _multi_set_slot_id(self, slot_index: int, value: int):
+        if 0 <= slot_index < len(self.multi_slots):
+            self.multi_slots[slot_index]["id"] = value
+
+    def _multi_set_graph_signal(self, slot_index: int, text: str):
+        self._multi_set_slot_graph_item(slot_index, text)
+
+    def _multi_edit_slot(self, slot_index: int):
+        return
+
+    def _multi_delete_slot(self, slot_index: int):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        self.multi_slots.pop(slot_index)
+        self._rebuild_multi_cards()
+
+    def _multi_common_message_edit_finished(self):
+        combo = getattr(self, "multi_common_message_combo", None)
+        if combo is None:
+            return
+        text = combo.currentText().strip()
+        if text == "":
+            self._multi_common_set_message("")
+            return
+        if text in self._multi_message_name_set:
+            self._multi_common_set_message(text)
+            return
+        combo.blockSignals(True)
+        combo.setCurrentText("")
+        combo.blockSignals(False)
+
+    def _multi_common_set_message(self, message_name: str):
+        name = (message_name or "").strip()
+
+        while self.multi_common_signals_form.rowCount():
+            self.multi_common_signals_form.removeRow(0)
+        self._multi_common_signal_fields = {}
+
+        if self.db is None or not name:
+            self.multi_common_message_name = None
+            return
+        if name not in self._multi_message_name_set:
+            return
+
+        self.multi_common_message_name = name
+        message = self.db.get_message_by_name(name)
+        if not message:
+            return
+
+        for sig in message.signals:
+            value = self._multi_common_values.get(sig.name, 0)
+            field = QLineEdit(str(value))
+            self.multi_common_signals_form.addRow(sig.name, field)
+            self._multi_common_signal_fields[sig.name] = field
+
+    def _multi_common_send(self):
+        if self.bus is None or self.db is None:
+            return
+        message_name = getattr(self, "multi_common_message_name", None)
+        if not message_name:
+            return
+
+        values = {}
+        for name, field in getattr(self, "_multi_common_signal_fields", {}).items():
+            text = field.text().strip()
+            if text == "":
+                continue
+            try:
+                values[name] = float(text) if "." in text else int(text)
+            except ValueError:
+                logic.show_message(self, "Error", f"Invalid value: {name} = '{text}'")
+                return
+
+        target_ids = sorted(
+            {int(s.get("id", 0)) & 0x1F for s in self.multi_slots if s.get("enabled", False)}
+        )
+        if not target_ids:
+            return
+
+        logic.send_common_message_to_ids(self, message_name, values, target_ids)
+
+    def _collect_common_signal_values(self) -> dict:
+        values = {}
+        for name, field in getattr(self, "_multi_common_signal_fields", {}).items():
+            text = field.text().strip()
+            if text == "":
+                continue
+            values[name] = float(text) if "." in text else int(text)
+        return values
+
+    def serialize_multi_template(self) -> dict:
+        common_message = getattr(self, "multi_common_message_name", None)
+        common_values = {}
+        if common_message:
+            try:
+                common_values = self._collect_common_signal_values()
+            except Exception:
+                common_values = {}
+
+        slots = []
+        for slot in self.multi_slots:
+            graph_item = None
+            if slot.get("graph_message_name") and slot.get("graph_signal"):
+                graph_item = f"{slot.get('graph_message_name')}.{slot.get('graph_signal')}"
+
+            slots.append(
+                {
+                    "enabled": bool(slot.get("enabled", True)),
+                    "id": int(slot.get("id", 1)),
+                    "tx_message_name": slot.get("tx_message_name"),
+                    "tx_applied_values": dict(slot.get("tx_applied_values") or {}),
+                    "graph_item": graph_item,
+                }
+            )
+
+        return {
+            "version": 1,
+            "period_ms": int(self.multi_period_ms.value()),
+            "common": {
+                "message_name": common_message,
+                "signal_values": common_values,
+            },
+            "slots": slots,
+        }
+
+    def apply_multi_template(self, template: dict):
+        if not isinstance(template, dict):
+            raise ValueError("Invalid template format")
+
+        period_ms = template.get("period_ms", 10)
+        self.multi_period_ms.setValue(int(period_ms))
+
+        common = template.get("common") or {}
+        self._multi_common_values = dict(common.get("signal_values") or {})
+        common_message = common.get("message_name")
+        if hasattr(self, "multi_common_message_combo"):
+            self.multi_common_message_combo.setCurrentText(common_message or "")
+        if common_message and self.db is not None:
+            self._multi_common_set_message(common_message)
+        else:
+            self.multi_common_message_name = common_message or None
+
+        slots = []
+        for raw in template.get("slots") or []:
+            graph_item = raw.get("graph_item") or ""
+            graph_message_name = None
+            graph_signal = None
+            if isinstance(graph_item, str) and "." in graph_item:
+                graph_message_name, graph_signal = graph_item.split(".", 1)
+
+            slots.append(
+                {
+                    "enabled": bool(raw.get("enabled", True)),
+                    "id": int(raw.get("id", 1)),
+                    "tx_message_name": raw.get("tx_message_name"),
+                    "tx_pending_values": {},
+                    "tx_applied_values": dict(raw.get("tx_applied_values") or {}),
+                    "tx_ready": False,
+                    "graph_message_name": graph_message_name,
+                    "graph_signal": graph_signal,
+                    "graph_cmd_id": None,
+                    "time": deque(maxlen=500),
+                    "values": deque(maxlen=500),
+                    "start": None,
+                }
+            )
+
+        self.multi_slots = slots[:8]
+        self._rebuild_multi_cards()
+
+        if self.db is not None:
+            for i, slot in enumerate(self.multi_slots):
+                if slot.get("graph_message_name") and slot.get("graph_signal"):
+                    self._multi_set_slot_graph_item(
+                        i, f"{slot['graph_message_name']}.{slot['graph_signal']}"
+                    )
+
+    def save_multi_template(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Multi Template",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            payload = self.serialize_multi_template()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logic.show_message(self, "Error", f"Failed to save template.\nError: {e}")
+
+    def load_multi_template(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Multi Template",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                template = json.load(f)
+            self.apply_multi_template(template)
+        except Exception as e:
+            logic.show_message(self, "Error", f"Failed to load template.\nError: {e}")
+
+    def refresh_multi_message_list(self):
+        self._multi_message_names = []
+        self._multi_message_name_set = set()
+        if self.db is not None:
+            self._multi_message_names = [m.name for m in self.db.messages]
+            self._multi_message_name_set = set(self._multi_message_names)
+
+        graph_items = []
+        if self.db is not None:
+            for msg in self.db.messages:
+                for sig in msg.signals:
+                    graph_items.append(f"{msg.name}.{sig.name}")
+        self._multi_graph_items = graph_items
+        self._multi_graph_items_set = set(graph_items)
+
+        for slot_index, slot in enumerate(self.multi_slots):
+            ui = slot.get("_ui", {})
+            tx_combo = ui.get("tx_message_combo")
+            graph_combo = ui.get("graph_item_combo")
+            if tx_combo is None or graph_combo is None:
+                continue
+
+            for combo, current, items in [
+                (tx_combo, slot.get("tx_message_name") or "", self._multi_message_names),
+                (
+                    graph_combo,
+                    (
+                        f"{slot.get('graph_message_name')}.{slot.get('graph_signal')}"
+                        if slot.get("graph_message_name") and slot.get("graph_signal")
+                        else ""
+                    ),
+                    self._multi_graph_items,
+                ),
+            ]:
+                combo.blockSignals(True)
+                combo.clear()
+                combo.addItem("")
+                combo.addItems(items)
+                combo.setEnabled(bool(items))
+
+                completer = QCompleter(items, combo)
+                completer.setCaseSensitivity(Qt.CaseInsensitive)
+                completer.setFilterMode(Qt.MatchContains)
+                combo.setCompleter(completer)
+
+                if current and current in set(items):
+                    combo.setCurrentText(current)
+                else:
+                    combo.setCurrentIndex(0)
+                combo.blockSignals(False)
+
+            if slot.get("tx_message_name"):
+                self._multi_rebuild_slot_tx_ui(slot_index)
+
+        if hasattr(self, "multi_common_message_combo"):
+            self.multi_common_message_combo.blockSignals(True)
+            self.multi_common_message_combo.clear()
+            self.multi_common_message_combo.addItem("")
+            self.multi_common_message_combo.addItems(self._multi_message_names)
+            self.multi_common_message_combo.setEnabled(bool(self._multi_message_names))
+            completer = QCompleter(self._multi_message_names, self.multi_common_message_combo)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchContains)
+            self.multi_common_message_combo.setCompleter(completer)
+            self.multi_common_message_combo.blockSignals(False)
+
+    def _on_multi_message_chosen(self, item: QListWidgetItem):
+        if self._multi_active_slot_index is None:
+            return
+        if not (0 <= self._multi_active_slot_index < len(self.multi_slots)):
+            return
+
+        name = item.data(Qt.UserRole)
+        slot = self.multi_slots[self._multi_active_slot_index]
+        slot["message_name"] = name
+
+        ui = slot["_ui"]
+        ui["msg_label"].setText(f"Message: {name}")
+        ui["sig_combo"].blockSignals(True)
+        ui["sig_combo"].clear()
+        message = self.db.get_message_by_name(name)
+        if message:
+            for sig in message.signals:
+                ui["sig_combo"].addItem(sig.name)
+            if ui["sig_combo"].count() > 0:
+                ui["sig_combo"].setCurrentIndex(0)
+                slot["graph_signal"] = ui["sig_combo"].currentText()
+        ui["sig_combo"].blockSignals(False)
+
+        self._populate_multi_editor_for_slot(self._multi_active_slot_index)
+        self.multi_stack.setCurrentWidget(self.multi_editor)
+
+    def _populate_multi_editor_for_slot(self, slot_index: int):
+        slot = self.multi_slots[slot_index]
+        name = slot.get("message_name")
+        self.multi_editor_title.setText(name or "Message")
+
+        while self.multi_editor_form_layout.rowCount():
+            self.multi_editor_form_layout.removeRow(0)
+
+        if self.db is None or not name:
+            return
+
+        message = self.db.get_message_by_name(name)
+        if not message:
+            return
+
+        values = slot["signal_values"]
+        for sig in message.signals:
+            values.setdefault(sig.name, 0)
+
+            field = QLineEdit()
+            field.setText(str(values[sig.name]))
+            field.textChanged.connect(
+                lambda text, s=sig.name, i=slot_index: self._multi_set_signal_text(
+                    i, s, text
+                )
+            )
+            self.multi_editor_form_layout.addRow(sig.name, field)
+
+    def _multi_set_signal_text(self, slot_index: int, signal_name: str, text: str):
+        if not (0 <= slot_index < len(self.multi_slots)):
+            return
+        slot = self.multi_slots[slot_index]
+        try:
+            if "." in text:
+                slot["signal_values"][signal_name] = float(text)
+            else:
+                slot["signal_values"][signal_name] = int(text)
+        except ValueError:
+            pass
+
+    def refresh_multi_graphs(self):
+        if not self.multi_graph_active:
+            return
+        for slot in self.multi_slots:
+            ui = slot.get("_ui")
+            if not ui:
+                continue
+            ui["curve"].setData(list(slot["time"]), list(slot["values"]))
+
+    def multi_graph_on_rx(self, can_id: int, decoded_data: dict):
+        node_id = (int(can_id) >> 6) & 0x1F
+        cmd_id = int(can_id) & 0x3F
+        for slot in self.multi_slots:
+            if int(slot.get("id", 0)) != int(node_id):
+                continue
+            if slot.get("graph_cmd_id") is None:
+                continue
+            if int(slot.get("graph_cmd_id")) != int(cmd_id):
+                continue
+
+            signal_name = slot.get("graph_signal")
+            if not signal_name or signal_name not in decoded_data:
+                continue
+
+            now = time.monotonic()
+            if slot["start"] is None:
+                slot["start"] = now
+            t = now - slot["start"]
+            slot["time"].append(t)
+            slot["values"].append(decoded_data[signal_name])
+
+            if self.multi_graph_active:
+                ui = slot.get("_ui")
+                if ui:
+                    ui["curve"].setData(list(slot["time"]), list(slot["values"]))
 
     def setup_main_panel(self, layout):
         splitter = QSplitter(Qt.Horizontal)
@@ -197,7 +1188,7 @@ class MainWindow(QMainWindow):
         graph_layout.addWidget(self.id_input)
 
         self.scan_button = QPushButton("Scan CAN Bus")
-        self.scan_button.clicked.connect(lambda: logic.scan_can_bus(self))
+        self.scan_button.clicked.connect(self._on_scan_can_bus_clicked)
         graph_layout.addWidget(self.scan_button)
 
         self.load_dbc_button = QPushButton("Load DBC File")
@@ -233,11 +1224,23 @@ class MainWindow(QMainWindow):
             lambda: logic.control_mode_changed(self)
         )
 
+        # Make control mode checkboxes mutually exclusive (only one can be checked).
+        self.pos_checkbox.toggled.connect(
+            lambda checked: self._set_control_mode_exclusive(self.pos_checkbox, checked)
+        )
+        self.vel_checkbox.toggled.connect(
+            lambda checked: self._set_control_mode_exclusive(self.vel_checkbox, checked)
+        )
+        self.torq_checkbox.toggled.connect(
+            lambda checked: self._set_control_mode_exclusive(self.torq_checkbox, checked)
+        )
+
     def start_bootstrap_update(self):
         hex_file_path, _ = QFileDialog.getOpenFileName(
             self, "Open Hex File", "", "Hex Files (*.hex)"
         )
         if hex_file_path:
+            self.pause_can_updates = True
             self.state_machine = StateMachine(self, hex_file_path)
             self.create_progress_dialog()
             self.state_machine.start_bootstrap()
@@ -248,6 +1251,7 @@ class MainWindow(QMainWindow):
             self, "Open Hex File", "", "Hex Files (*.hex)"
         )
         if hex_file_path:
+            self.pause_can_updates = True
             self.state_machine = StateMachine(self, hex_file_path)
             self.create_progress_dialog()
             self.state_machine.start_normalboot()
@@ -259,6 +1263,12 @@ class MainWindow(QMainWindow):
 
     def handle_received_message(self, msg):
         logic.handle_received_message(self, msg)
+
+    def _on_scan_can_bus_clicked(self):
+        if getattr(self, "active_tab", "single") == "bcu":
+            logic.scan_can_bus_bcu(self)
+        else:
+            logic.scan_can_bus(self)
 
     def create_progress_dialog(self):
         self.progress_dialog = QProgressDialog(
@@ -290,6 +1300,7 @@ class MainWindow(QMainWindow):
             if self.progress_thread:
                 self.progress_thread.stop()
             QMessageBox.information(self, "BootStrap Update", "Update Complete")
+        self.pause_can_updates = False
 
     def statemachine_completed(self):
         self.statemachine_timer.stop()
@@ -310,6 +1321,7 @@ class MainWindow(QMainWindow):
             if self.progress_thread:
                 self.progress_thread.stop()
             QMessageBox.information(self, "BootStrap Update", "Update Canceled")
+        self.pause_can_updates = False
 
     # def wheelEvent(self, event):
     #     if hasattr(event, "angleDelta"):
