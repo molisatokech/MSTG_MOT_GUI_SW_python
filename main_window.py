@@ -123,17 +123,17 @@ class MainWindow(QMainWindow):
         self.single_tab_layout.addWidget(self.single_like_panel)
         self.tabs.addTab(self.single_tab, "Single")
 
-        self.bcu_tab = QWidget()
-        self.bcu_tab_layout = QVBoxLayout()
-        self.bcu_tab_layout.setContentsMargins(0, 0, 0, 0)
-        self.bcu_tab.setLayout(self.bcu_tab_layout)
-        self.tabs.addTab(self.bcu_tab, "BCU")
-
         self.multi_tab = QWidget()
         multi_layout = QVBoxLayout()
         self.multi_tab.setLayout(multi_layout)
         self.setup_multi_panel(multi_layout)
         self.tabs.addTab(self.multi_tab, "Multi")
+
+        self.bcu_tab = QWidget()
+        self.bcu_tab_layout = QVBoxLayout()
+        self.bcu_tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.bcu_tab.setLayout(self.bcu_tab_layout)
+        self.tabs.addTab(self.bcu_tab, "BCU")
 
         layout.addWidget(self.tabs)
 
@@ -177,6 +177,21 @@ class MainWindow(QMainWindow):
             self.bootstrap_update_button.setVisible(not is_bcu)
         if hasattr(self, "normal_fw_update_button"):
             self.normal_fw_update_button.setVisible(not is_bcu)
+        if hasattr(self, "pos_checkbox"):
+            self.pos_checkbox.setVisible(not is_bcu)
+        if hasattr(self, "vel_checkbox"):
+            self.vel_checkbox.setVisible(not is_bcu)
+        if hasattr(self, "torq_checkbox"):
+            self.torq_checkbox.setVisible(not is_bcu)
+
+        if is_bcu and hasattr(self, "send_timer"):
+            self.send_timer.stop()
+            for checkbox in (getattr(self, "pos_checkbox", None), getattr(self, "vel_checkbox", None), getattr(self, "torq_checkbox", None)):
+                if checkbox is None:
+                    continue
+                checkbox.blockSignals(True)
+                checkbox.setChecked(False)
+                checkbox.blockSignals(False)
 
     def setup_top_bar(self, layout):
         top_layout = QHBoxLayout()
